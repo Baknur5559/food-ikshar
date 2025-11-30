@@ -1,0 +1,3414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SUSHISAN-47: Система Заказов</title>
+  
+  <style>
+    /* ==========================================================================
+       СТИЛИ ПРИЛОЖЕНИЯ
+       ========================================================================== */
+
+    /* === 1. ШРИФТЫ И ОСНОВНЫЕ ПЕРЕМЕННЫЕ === */
+    @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --background-color: #121212;
+      --surface-color: #1E1E1E;
+      --primary-accent: #E0A800;
+      --text-primary: #FFFFFF;
+      --text-secondary: #A0A0A0;
+      --border-color: #333333;
+      --font-body: 'Inter', sans-serif;
+      --font-header: 'Lora', serif;
+      --shadow-soft: 0 4px 15px rgba(0, 0, 0, 0.2);
+      --shadow-medium: 0 8px 30px rgba(0, 0, 0, 0.3);
+      --global-padding: 16px;
+      --border-radius: 12px;
+      --promo-color: #D32F2F;
+    }
+
+/* === ФИНАЛЬНЫЕ СТИЛИ ДЛЯ КОМПАКТНОГО ИНФО-ОКНА === */
+
+/* Уменьшаем максимальную ширину и внутренние отступы самого окна */
+#info-modal .modal-content {
+    max-width: 380px;  /* Делаем еще немного уже */
+    padding: 16px;     /* Уменьшаем отступы по краям */
+    max-height: 85vh;  /* Ограничиваем максимальную высоту */
+}
+
+/* Уменьшаем отступ под заголовком */
+#info-modal h3 {
+    margin-bottom: 12px;
+}
+
+/* * ВАЖНОЕ ИЗМЕНЕНИЕ: Заставляем прокручиваться только центральный блок 
+ */
+#info-modal-body {
+    overflow-y: auto; /* Добавляем вертикальную прокрутку, если контент не влезает */
+    flex-grow: 1;       /* Разрешаем блоку растягиваться */
+    padding-right: 5px; /* Небольшой отступ для полосы прокрутки */
+}
+
+/* Уменьшаем отступ под кнопкой */
+#info-modal-ok-btn {
+    margin-top: 12px;
+}
+
+/* Превращаем каждый инфо-блок в flex-контейнер */
+.info-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;           /* Уменьшаем отступ между иконкой и текстом */
+    margin-bottom: 12px; /* Уменьшаем отступ снизу */
+}
+
+/* Уменьшаем размер иконки */
+.info-icon {
+    flex-shrink: 0;
+    width: 40px;            /* Уменьшаем ширину */
+    height: 40px;           /* и высоту */
+    font-size: 1.5em;       /* Уменьшаем иконку-эмодзи */
+    display: grid;
+    place-items: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+}
+
+/* Уменьшаем текст и убираем отступы */
+.info-section p {
+    margin: 0;
+    text-align: left;
+    font-size: 0.9em; /* Делаем текст чуть компактнее */
+}
+
+/* Стили для блока "ВАЖНО" */
+.info-highlight {
+    background-color: rgba(224, 168, 0, 0.1);
+    border: 1px solid var(--primary-accent);
+    border-radius: var(--border-radius);
+    padding: 10px; /* Уменьшаем внутренний отступ */
+}
+
+    /* === 2. ГЛОБАЛЬНЫЕ СТИЛИ === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { width: 100%; height: 100%; }
+    body {
+      font-family: var(--font-body);
+      background-color: var(--background-color);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100dvh;
+      -webkit-tap-highlight-color: transparent;
+      overflow: hidden;
+    }
+    
+    /* Важный класс для скрытия элементов */
+    .hidden {
+      display: none !important;
+    }
+
+    /* === 3. ХЕДЕР === */
+    .header-fixed {
+      width: 100%;
+      z-index: 1000;
+      background-color: rgba(30, 30, 30, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 12px var(--global-padding);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-fixed header {
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-title-group h1 { font-family: var(--font-header); font-size: 1.6em; }
+    .header-title-group p { font-size: 0.8em; color: var(--text-secondary); }
+    .cart-summary-fixed {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background-color: var(--surface-color);
+      padding: 8px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+    }
+    .cart-icon { font-size: 1.4em; }
+    .cart-count {
+      background-color: var(--primary-accent);
+      color: #000;
+      border-radius: 50%;
+      font-size: 0.8em;
+      font-weight: 600;
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+    }
+    .icon-button { background: none; border: none; cursor: pointer; padding: 0; display: flex; color: var(--text-primary); }
+    .icon-button svg { width: 32px; height: 32px; stroke: var(--text-primary); stroke-width: 3; }
+    .back-button.hidden { visibility: hidden; }
+
+    /* === 4. ОСНОВНОЙ КОНТЕЙНЕР И СЕКЦИИ === */
+    .app-container { width: 100%; height: 100%; padding: 0; overflow-y: auto; padding-bottom: 170px; }
+    .app-section { display: none; padding: 0 var(--global-padding); }
+    .app-section.active { display: block; animation: fadeIn 0.5s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .section-title { font-family: var(--font-header); font-size: 2em; text-align: center; margin: 24px 0; }
+    
+    /* === 5. КАРТОЧКИ (ИЗМЕНЕНИЯ И ДОПОЛНЕНИЯ) === */
+    .category-card, .menu-item {
+      background-color: var(--surface-color);
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      transition: transform 0.2s ease;
+      position: relative;
+    }
+    .category-card:hover, .menu-item:hover { transform: translateY(-5px); }
+
+    .location-button {
+      background: linear-gradient(145deg, #2e2e2e, #1a1a1a);
+      border: 1px solid #4F4F4F;
+      border-radius: var(--border-radius);
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+    .location-button:hover {
+      transform: translateY(-5px);
+      border-color: var(--primary-accent);
+      box-shadow: 0 0 25px rgba(224, 168, 0, 0.2);
+    }
+    .location-button strong {
+      font-family: var(--font-header);
+      font-size: 3em;
+      display: block;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .location-button p { font-size: 1.7em; color: var(--text-secondary); }
+    .location-status { display: block; margin-top: 12px; font-size: 1.2em; font-weight: 500; }
+    .location-hours { font-size: 1.2em; color: var(--text-secondary); margin-top: 8px; }
+    .location-button.closed { background: #2a2a2a; opacity: 0.6; cursor: not-allowed; border-color: #333; }
+    .location-button.closed:hover { transform: none; box-shadow: none; }
+    .location-status.open { color: #4CAF50; }
+    .location-status.closed { color: #F44336; }
+    
+    /* Стили для карточки категории со слайдером */
+    .category-card {
+        padding: 0; 
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        cursor: pointer;
+    }
+    .category-slider-container {
+        width: 100%;
+        height: 150px;
+        position: relative;
+        flex-shrink: 0;
+    }
+    .category-slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.8s ease-in-out;
+        background-size: cover;
+        background-position: center;
+    }
+    .category-slide.active {
+        opacity: 1;
+    }
+    .category-slide-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        color: white;
+        padding: 20px 8px 8px 8px;
+        font-size: 0.8em;
+        font-weight: 500;
+        text-align: left;
+    }
+    .category-card-title {
+        font-family: var(--font-header);
+        font-size: 1.5em;
+        padding: 16px;
+        margin-top: auto;
+        width: 100%;
+        text-align: center;
+        background-color: var(--surface-color);
+    }
+    /* НОВОЕ: Стиль для карточки "Все акции" */
+    .promo-category .category-slider-container {
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, var(--promo-color), #8E24AA);
+    }
+    .promo-category .promo-icon {
+      font-size: 3em;
+      filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+    }
+
+
+    .menu-item {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .menu-item img { width: 100%; height: 160px; object-fit: cover; }
+    .item-details { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; }
+    .item-details h3 { font-family: var(--font-header); font-size: 1.2em; margin-bottom: 8px; }
+    .item-description {
+      font-size: 0.8em;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      margin-bottom: 8px;
+      flex-grow: 1;
+    }
+    .details-button {
+      background: none;
+      border: none;
+      color: var(--primary-accent);
+      text-decoration: underline;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      margin-top: 4px;
+      align-self: flex-start;
+    }
+    
+    .item-price-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+    
+    .price-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .price-container .price {
+      font-weight: 600;
+      color: var(--primary-accent);
+      font-size: 1.4em;
+    }
+    .price-container .old-price {
+      font-size: 1em;
+      color: var(--text-secondary);
+      text-decoration: line-through;
+      margin-bottom: -4px;
+    }
+    
+    /* Управление количеством товара */
+    .item-action-controls { position: relative; width: 110px; height: 40px; }
+    .item-quantity-stepper, .item-add-initial-btn {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      border-radius: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .item-quantity-stepper {
+      background-color: var(--primary-accent);
+      color: #000;
+      justify-content: space-between;
+    }
+    .item-quantity-stepper.hidden { opacity: 0; transform: scale(0.8); pointer-events: none; }
+    .item-quantity-stepper button { background: none; border: none; color: #000; font-size: 2em; width: 40px; }
+    .item-quantity-stepper .quantity { font-size: 1.2em; font-weight: 600; }
+    .item-add-initial-btn {
+      background-color: var(--surface-color);
+      color: var(--primary-accent);
+      border: 1.5px solid var(--primary-accent);
+      font-size: 2em;
+    }
+    
+    /* Стикер "Акция" */
+    .promo-sticker {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background-color: var(--promo-color);
+      color: white;
+      font-size: 0.9em;
+      font-weight: bold;
+      text-transform: uppercase;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transform: rotate(-7deg);
+      z-index: 1;
+    }
+    
+    /* === 6. ФУТЕР === */
+    .footer-fixed {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      width: auto;
+      z-index: 1000;
+      transform: translateY(0);
+      transition: transform 0.4s ease-out;
+    }
+    .footer-fixed.hidden { transform: translateY(200%); }
+    .footer-fixed .cart-checkout-button {
+      width: 100%;
+      background-color: var(--primary-accent);
+      color: #000;
+      padding: 18px;
+      font-size: 1.5em;
+      font-weight: 600;
+      border-radius: var(--border-radius);
+      border: none;
+      cursor: pointer;
+      text-align: center;
+      box-shadow: var(--shadow-medium);
+    }
+
+    /* === 7. МОДАЛЬНЫЕ ОКНА === */
+    .modal {
+      position: fixed;
+      z-index: 2000;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease;
+    }
+    .modal.active { opacity: 1; visibility: visible; }
+    .modal-content {
+      background-color: var(--surface-color);
+      padding: 20px;
+      width: 95%;
+      max-width: 500px;
+      border-radius: 20px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+    }
+    .modal.active .modal-content { transform: scale(1); }
+    .close-button {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 36px;
+      height: 36px;
+      background: rgba(0, 0, 0, 0.3);
+      color: var(--text-primary);
+      font-size: 1.6em;
+      font-weight: 600;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      z-index: 10;
+      transition: background-color 0.2s ease;
+    }
+    .close-button:hover { background: rgba(0, 0, 0, 0.5); }
+    .modal h3 {
+      font-family: var(--font-header);
+      font-size: 1.8em;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--border-radius);
+      font-size: 1.2em;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      border: none;
+    }
+    .btn.primary-btn { background-color: var(--primary-accent); color: #000; }
+    .btn.secondary-btn { background-color: #333; color: var(--text-primary); }
+    
+    .modal#order-details-modal, .modal#checkout-modal { align-items: flex-end; }
+    .modal#order-details-modal .modal-content, .modal#checkout-modal .modal-content {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        transform: translateY(100%);
+        max-width: 700px;
+    }
+    .modal#order-details-modal.active .modal-content, .modal#checkout-modal.active .modal-content {
+        transform: translateY(0);
+    }
+    #order-confirmation-modal .modal-content, #error-modal .modal-content, #delivery-info-modal .modal-content {
+      text-align: center;
+    }
+    
+    /* === 8. КОРЗИНА И ДОПЫ === */
+    #modal-order-items, #addon-modal-list {
+      flex-grow: 1;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      padding-right: 10px;
+    }
+    .modal-footer {
+      width: 100%;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+    .cart-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .cart-item-image {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    .cart-item-info h4 { font-size: 1.1em; }
+    .cart-item .quantity-controls {
+      display: flex;
+      align-items: center;
+      background-color: #333;
+      border-radius: 18px;
+    }
+    .cart-item .quantity-controls button {
+      width: 36px;
+      height: 36px;
+      color: var(--text-primary);
+      background: none;
+      border: none;
+    }
+    .modal-summary {
+      text-align: right;
+      font-size: 1.4em;
+      font-weight: 600;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+      width: 100%;
+    }
+    .addon-item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .addon-item-info h4 { font-size: 1.1em; margin: 0; }
+    .addon-item-info p { font-size: 1em; color: var(--primary-accent); margin: 0; }
+    
+    /* === 9. ИНДИКАТОРЫ ЗАГРУЗКИ === */
+    .modal-spinner-overlay {
+      position: absolute;
+      inset: 0;
+      background-color: rgba(30, 30, 30, 0.8);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+    .modal-spinner-overlay:not(.hidden) { opacity: 1; visibility: visible; }
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--primary-accent);
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* === 10. ДИЗАЙН ФОРМЫ ОФОРМЛЕНИЯ ЗАКАЗА === */
+    #checkout-modal .modal-content { padding-bottom: 100px; }
+    .order-form {
+      flex-grow: 1;
+      padding-right: 5px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 20px;
+      align-content: start;
+      overflow-y: auto;
+    }
+    .form-field { display: flex; flex-direction: column; }
+    .form-field.full-width { grid-column: 1 / -1; }
+    .order-form label, .form-legend {
+      margin-bottom: 8px;
+      font-size: 1.2em;
+      color: var(--text-secondary);
+    }
+    .order-form input, .order-form textarea {
+      width: 100%;
+      padding: 12px;
+      background-color: var(--background-color);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 1.5em;
+      color: var(--text-primary);
+    }
+    .order-form textarea { resize: vertical; }
+
+    .chip-group { display: flex; flex-wrap: wrap; gap: 12px; }
+    .chip { position: relative; display: inline-block; }
+    .chip input[type="radio"] { display: none; }
+    .chip span {
+      display: block;
+      padding: 10px 16px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 20px;
+      background-color: var(--surface-color);
+      color: var(--text-secondary);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+    .chip input[type="radio"]:checked + span {
+      background-color: var(--primary-accent);
+      border-color: var(--primary-accent);
+      color: #000;
+      font-weight: 600;
+    }
+
+    .time-inputs { display: flex; gap: 12px; }
+    #deliveryDate, #deliveryTime { color-scheme: dark; }
+    .time-comment { font-size: 0.8em; color: #6c6c6c; margin-top: 8px; line-height: 1.4; }
+
+    .modal-form-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 20px 20px;
+      background: linear-gradient(to top, var(--surface-color) 60%, transparent);
+      flex-shrink: 0;
+    }
+
+    .skeleton-location {
+      background-color: var(--surface-color);
+      border-radius: var(--border-radius);
+      height: 148px;
+      background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+      background-size: 200% 100%;
+      animation: skeleton-wave 1.5s infinite linear;
+    }
+    @keyframes skeleton-wave {
+      from { background-position: 200% 0; }
+      to { background-position: -200% 0; }
+    }
+
+    /* === 11. АДАПТИВНЫЕ СЕТКИ === */
+    .grid-layout { display: grid; gap: var(--global-padding); grid-template-columns: 1fr; }
+    #menu-items:has(.category-card) { display: grid; gap: var(--global-padding); grid-template-columns: repeat(2, 1fr); }
+    #menu-items:has(.menu-item) { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+    
+    @media (min-width: 768px) {
+      .grid-layout { grid-template-columns: repeat(2, 1fr); }
+      #menu-items:has(.category-card) { grid-template-columns: repeat(3, 1fr); }
+      #menu-items:has(.menu-item) { grid-template-columns: repeat(3, 1fr); }
+      .order-form { grid-template-columns: 1fr 1fr; }
+    }
+    
+    @media (min-width: 1024px) {
+      .grid-layout { grid-template-columns: repeat(3, 1fr); }
+      #menu-items:has(.category-card) { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+      #menu-items:has(.menu-item) { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    /* === 12. СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА ТОВАРА === */
+    #item-details-modal .modal-content {
+      padding: 0;
+      max-width: 380px;
+    }
+    #item-details-modal img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+    }
+    #item-details-modal .modal-item-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    #item-details-modal h3 {
+      text-align: left;
+      margin-bottom: 10px;
+    }
+    #item-details-modal .modal-item-description {
+      font-size: 0.9em;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    #item-details-modal .item-price-actions {
+      margin-top: auto;
+    }
+
+    /* === 13. СТИЛИ ДЛЯ ОПЛАТЫ И ПОИСКА === */
+    .payment-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .payment-group .payment-method-options { flex: 2; min-width: 220px; }
+    .payment-group #change-from-container { flex: 1; min-width: 150px; }
+    
+    .search-container {
+      padding: 0 0 20px 0;
+      width: 100%;
+    }
+    #menu-search-input {
+      width: 100%;
+      padding: 14px 20px;
+      background-color: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      font-size: 1.2em;
+      color: var(--text-primary);
+      outline: none;
+    }
+    #menu-search-input:focus {
+      border-color: var(--primary-accent);
+    }
+    
+    /* === 14. СТИЛИ ДЛЯ АНИМАЦИИ === */
+    .auto-submit-timer {
+        margin-top: 20px;
+    }
+    .progress-bar-container {
+        width: 100%;
+        height: 8px;
+        background-color: var(--border-color);
+        border-radius: 4px;
+        margin-top: 10px;
+        overflow: hidden;
+    }
+    .progress-bar {
+        width: 100%;
+        height: 100%;
+        background-color: var(--primary-accent);
+        transform: translateX(-100%);
+        transition: transform 5s linear;
+    }
+    .progress-bar.active {
+        transform: translateX(0%);
+    }
+
+    .single-option-notice {
+        font-size: 1em;
+        font-weight: 500;
+        margin-top: 12px;
+        animation: text-pulse 1.5s infinite;
+    }
+    @keyframes text-pulse {
+        0%, 100% {
+            color: var(--text-primary);
+            text-shadow: 0 0 5px rgba(255, 0, 0, 0);
+        }
+        50% {
+            color: #FF6B6B; /* Красный */
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+        }
+    }
+
+    /* ==========================================================================
+       НОВЫЙ БЛОК: СТИЛИ ДЛЯ ПРОМО-СЛАЙДЕРА
+       ========================================================================== */
+    .promo-slider-container {
+      width: 100%;
+      margin-bottom: 24px;
+      position: relative;
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+    .promo-slider-wrapper {
+      overflow: hidden;
+    }
+    .promo-slider {
+      display: flex;
+      transition: transform 0.5s ease-in-out;
+    }
+    .promo-slide {
+      flex: 0 0 100%;
+      width: 100%;
+      aspect-ratio: 16 / 8;
+      position: relative;
+      cursor: pointer;
+      background-color: var(--surface-color);
+    }
+    .promo-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .promo-slide-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 32px 16px 16px;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%);
+      color: var(--text-primary);
+    }
+    .promo-slide-info h3 {
+      font-family: var(--font-header);
+      font-size: 1.5em;
+      margin: 0 0 4px 0;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+    }
+    .promo-slide-info p {
+      font-size: 1.1em;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    }
+    .promo-slide-info p .price {
+        color: var(--primary-accent);
+        font-weight: 600;
+    }
+    .promo-slide-info p .old-price {
+        text-decoration: line-through;
+        margin-right: 8px;
+    }
+
+    .slider-dots {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .dot.active {
+      background-color: var(--text-primary);
+    }
+    @media (min-width: 768px) {
+      .promo-slide {
+        aspect-ratio: 21 / 7;
+      }
+      .promo-slider-container {
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+
+    .slider-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      background-color: rgba(0, 0, 0, 0.4);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background-color 0.2s ease;
+    }
+    .slider-arrow:hover {
+      background-color: rgba(0, 0, 0, 0.7);
+    }
+    .slider-arrow.prev {
+      left: 10px;
+    }
+    .slider-arrow.next {
+      right: 10px;
+    }
+    @media (max-width: 767px) {
+        .slider-arrow {
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+        }
+    }
+    
+    /* === 15. СТИЛИ ДЛЯ ЛИЧНОГО КАБИНЕТА === */
+    .order-card {
+      background-color: var(--background-color);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .order-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .order-card-header h4 {
+      font-size: 1.2em;
+      font-family: var(--font-header);
+    }
+    .order-card-status {
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      font-weight: 600;
+      background-color: #333;
+      color: #fff;
+    }
+    .order-card-status.new { background-color: #2962FF; } /* Синий */
+    .order-card-status.confirmed { background-color: #FFAB00; color: #000;} /* Оранжевый */
+    .order-card-status.sent { background-color: #00C853; } /* Зеленый */
+    .order-card-status.delivered { background-color: #6a6a6a; }
+    .order-card-status.cancelled { background-color: #D50000; } /* Красный */
+
+    .order-card-body p {
+      font-size: 1em;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    #account-orders-content h2 {
+      font-family: var(--font-header);
+      font-size: 1.5em;
+      margin-top: 20px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+    #account-orders-content h2:first-child {
+      margin-top: 0;
+    }
+
+    /* === 16. ОБНОВЛЕННЫЕ СТИЛИ ДЛЯ ФОРМ И ЛК === */
+    /* Единый стиль для полей ввода */
+    .form-input {
+      width: 100%;
+      padding: 12px;
+      background-color: var(--background-color);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 1.5em;
+      color: var(--text-primary);
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary-accent);
+    }
+
+    /* Стили для вкладок в личном кабинете */
+    .tab-nav {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+    .tab-link {
+      padding: 10px 20px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.2em;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .tab-link.active {
+      color: var(--primary-accent);
+      border-bottom-color: var(--primary-accent);
+    }
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.5s ease;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Стили для чека внутри карточки заказа */
+    .order-check-list {
+        margin: 10px 0;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 1em;
+    }
+    .order-check-item, .order-check-addon {
+        display: flex;
+        justify-content: space-between;
+    }
+    .order-check-item .name, .order-check-addon .name {
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-right: 10px;
+    }
+    .order-check-addon {
+        padding-left: 20px;
+        color: #a0a0a0;
+        font-size: 0.9em;
+    }
+    .order-check-summary {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px dashed var(--border-color);
+    }
+    .summary-line {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 600;
+        font-size: 1.1em;
+    }
+    .summary-line.total {
+        color: var(--primary-accent);
+        font-size: 1.3em;
+        margin-top: 5px;
+    }
+
+    /* === 17. СТИЛИ ДЛЯ ЭКРАНА ВХОДА И АКТИВНЫХ ЗАКАЗОВ === */
+#login-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100vh;
+    padding: var(--global-padding);
+    background-color: var(--background-color);
+    z-index: 9999;
+    position: fixed; /* Чтобы был поверх всего */
+}
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+.login-container h1 {
+    font-family: var(--font-header);
+    font-size: 3em;
+    margin-bottom: 10px;
+}
+.login-container p {
+    color: var(--text-secondary);
+    font-size: 1.2em;
+    margin-bottom: 30px;
+}
+
+/* Стили для кнопок действий в карточке активного заказа */
+.order-actions-container {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+.action-button {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+}
+.action-button.edit {
+    background-color: var(--primary-accent);
+    color: #000;
+}
+.action-button.add-to {
+    background-color: #333;
+    color: var(--text-primary);
+    border: 1px solid var(--primary-accent);
+}
+
+/* ... другие стили ... */
+.action-button.add-to {
+    background-color: #333;
+    color: var(--text-primary);
+    border: 1px solid var(--primary-accent);
+}
+
+/* НОВЫЙ СТИЛЬ ДЛЯ КНОПКИ ОТМЕНЫ */
+.action-button.cancel {
+    background-color: #D32F2F; /* Красный цвет */
+    color: white;
+}
+
+/* ==========================================================================
+      НОВЫЕ СТИЛИ ДЛЯ РЕДИЗАЙНА ИНТЕРФЕЙСА
+   ========================================================================== */
+
+/* --- 1. Общая структура --- */
+body {
+  /* Убираем отступы у app-container, так как теперь есть панели */
+  padding-top: 60px; /* Высота хедера */
+  padding-bottom: 70px; /* Высота нижней панели */
+}
+
+.app-content {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--global-padding);
+  /* Добавляем отступ снизу, чтобы плавающая кнопка не перекрывала последние элементы */
+  padding-bottom: 90px;
+}
+
+/* --- 2. Верхняя панель (Header) --- */
+.header-fixed {
+  height: 60px;
+  padding: 0 var(--global-padding);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: fixed; /* Закрепляем сверху */
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.header-title {
+  font-family: var(--font-header);
+  font-size: 1.4em;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.header-fixed .icon-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 5; /* Чтобы кнопки были поверх заголовка */
+}
+/* Располагаем левые кнопки вместе */
+.header-fixed > .icon-button:first-child {
+    margin-right: auto;
+}
+.header-fixed > #back-button {
+    position: absolute;
+    left: 56px; /* Рядом с гамбургером */
+}
+.header-fixed > #logout-btn {
+    margin-left: auto;
+}
+
+
+/* --- 3. Боковая панель (Sidebar) --- */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100%;
+  background-color: var(--surface-color);
+  z-index: 3000;
+  transform: translateX(-100%); /* Скрываем панель за экраном */
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar.is-open {
+  transform: translateX(0); /* Показываем панель */
+}
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out;
+}
+.sidebar-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+.sidebar-header {
+  padding: 16px;
+  font-family: var(--font-header);
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+.sidebar-categories {
+  list-style: none;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+.sidebar-categories li {
+  padding: 16px;
+  font-size: 1.1em;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+.sidebar-categories li:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+
+/* --- 4. Нижняя панель навигации --- */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background-color: var(--surface-color);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+}
+.nav-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  height: 100%;
+  cursor: pointer;
+  transition: color 0.2s;
+  position: relative; /* Для значка корзины */
+}
+.nav-button svg {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+}
+.nav-button span {
+  font-size: 1.2em;
+  font-weight: 500;
+}
+.nav-button.active {
+  color: var(--primary-accent);
+}
+
+/* Значок с количеством товаров в корзине */
+.cart-badge {
+    position: absolute;
+    top: 8px;
+    right: calc(50% - 25px);
+    background-color: var(--promo-color);
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 0.8em;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+/* --- 5. Стили для контейнеров-экранов --- */
+.view-container {
+    width: 100%;
+    animation: fadeIn 0.4s ease;
+}
+
+/* Скрываем старые полноэкранные секции */
+.app-section {
+    display: none !important;
+}
+
+/* Старый контейнер нам больше не нужен в таком виде */
+.app-container {
+    display: none !important;
+}
+
+/* Прячем старый футер с кнопкой */
+.footer-fixed {
+    display: none !important;
+}
+
+/* Стили для формы профиля (в кабинете) */
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* --- 6. Стили для сетки категорий --- */
+.category-grid {
+    grid-template-columns: repeat(2, 1fr); /* Две колонки */
+    gap: 12px;
+}
+
+.category-card {
+    cursor: pointer;
+    overflow: hidden; /* Важно для скругления углов */
+}
+.category-slider-container {
+    width: 100%;
+    height: 120px; /* Уменьшим высоту для компактности */
+    position: relative;
+}
+.category-slide {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out;
+}
+.category-slide.active {
+    opacity: 1;
+}
+.category-card-title {
+    padding: 12px;
+    font-size: 1.1em;
+}
+
+/* На больших экранах можно сделать больше колонок */
+@media (min-width: 768px) {
+    .category-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* --- 7. Стили для сетки товаров --- */
+.menu-items-grid {
+    grid-template-columns: repeat(2, 1fr); /* Две колонки по умолчанию */
+    gap: 12px;
+}
+
+/* На больших экранах делаем больше колонок */
+@media (min-width: 768px) {
+    .menu-items-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (min-width: 1024px) {
+    .menu-items-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* --- 8. Улучшенные стили для корзины --- */
+.cart-item-info .cart-item-total {
+    margin-top: 8px;
+    font-size: 1.1em;
+    color: var(--text-primary);
+}
+.cart-item .quantity-controls {
+    background-color: #333;
+    border-radius: 22px; /* Более круглые края */
+}
+.cart-item .quantity-controls span {
+    font-size: 1.2em; /* Увеличиваем цифру */
+    min-width: 30px;
+    text-align: center;
+}
+.cart-item .quantity-controls button {
+    width: 44px; /* Увеличиваем ширину кнопок */
+    height: 44px; /* Увеличиваем высоту кнопок */
+    font-size: 1.8em; /* Увеличиваем сами значки +/- */
+    color: var(--text-primary);
+}
+
+/* --- 9. Стили для закрепленного футера в корзине --- */
+.cart-view {
+  /* Добавляем отступ снизу, равный высоте нового футера, чтобы он не перекрывал последний товар */
+  padding-bottom: 120px; 
+}
+
+.cart-summary {
+  position: fixed; /* Закрепляем элемент */
+  bottom: 70px; /* Ставим его над нижней навигационной панелью */
+  left: 0;
+  right: 0;
+  
+  /* Стили для красоты */
+  background-color: var(--surface-color);
+  padding: var(--global-padding);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
+  z-index: 900; /* Чтобы был поверх контента, но ниже модальных окон */
+}
+
+.cart-summary .summary-line {
+  font-size: 1.2em; /* Увеличиваем текст "Итого" */
+  margin-bottom: 12px;
+}
+
+.cart-summary .summary-line strong {
+  font-size: 1.3em; /* Увеличиваем саму сумму */
+}
+
+.cart-summary .btn {
+  font-size: 1.3em; /* Увеличиваем текст на кнопке */
+  padding: 18px; /* Делаем кнопку повыше */
+  margin-top: 0; /* Убираем стандартный отступ */
+}
+
+/* --- 10. Стили для плавающей кнопки оформления --- */
+.floating-checkout-container {
+  position: fixed;
+  bottom: 70px; /* Ровно над нижней панелью навигации */
+  left: 0;
+  right: 0;
+  padding: 0 var(--global-padding) 12px;
+  z-index: 950;
+  /* Плавное появление и исчезновение */
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.floating-checkout-container.hidden {
+  opacity: 0;
+  transform: translateY(100%); /* Уезжает вниз при скрытии */
+  pointer-events: none; /* Чтобы нельзя было нажать на невидимую кнопку */
+}
+
+#floating-checkout-btn {
+  width: 100%;
+  padding: 18px;
+  font-size: 1.2em;
+  font-weight: 600;
+  box-shadow: var(--shadow-medium);
+}
+
+/* --- 11. Отступ в детальной карточке товара --- */
+#item-details-modal .item-price-actions {
+  margin-top: 24px; /* Добавляем отступ сверху */
+}
+
+/* --- 12. СТИЛИ ДЛЯ ПЛАВАЮЩЕЙ КНОПКИ СВЯЗИ (FAB) --- */
+.fab-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 10px; /* <-- ИЗМЕНЕНИЕ ЗДЕСЬ! Немного приподнимем всю конструкцию */
+    width: 72px;
+    height: 72px;
+    z-index: 1010; /* <-- И ЗДЕСЬ! Увеличим z-index на всякий случай */
+}
+
+/* Добавьте этот код в ваш CSS */
+
+.floating-checkout-container {
+    /* ... ваши существующие стили ... */
+    /* Добавляем плавный переход для движения вверх/вниз */
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.floating-checkout-container.is-shifted {
+    /* Сдвигаем кнопку вверх на 240px, когда у нее появляется этот класс */
+    transform: translateY(-90px);
+}
+
+.fab-main {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--primary-accent), #ffc107);
+    color: #000;
+    border: 3px solid var(--surface-color);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: var(--shadow-medium);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fab-main:hover {
+    transform: scale(1.1);
+}
+.fab-main svg {
+    width: 36px;
+    height: 36px;
+    transition: transform 0.3s ease;
+}
+
+/* Стили для выезжающих иконок */
+/* --- 12. СТИЛИ ДЛЯ ПЛАВАЮЩЕЙ КНОПКИ СВЯЗИ (FAB) --- */
+.fab-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    /* The main button is now positioned relative to the bottom of the screen */
+    bottom: 10px; 
+    width: 72px;
+    height: 72px;
+    z-index: 1010; 
+}
+
+/* --- 12. СТИЛИ ДЛЯ ПЛАВАЮЩЕЙ КНОПКИ СВЯЗИ (FAB) --- */
+
+/* Контейнер для главной кнопки */
+.fab-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 10px;
+    width: 72px;
+    height: 72px;
+    z-index: 1010;
+}
+
+/* Стили главной кнопки */
+.fab-main {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--primary-accent), #ffc107);
+    color: #000;
+    border: 3px solid var(--surface-color);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: var(--shadow-medium);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fab-main svg {
+    width: 36px;
+    height: 36px;
+    transition: transform 0.3s ease;
+}
+
+/* * КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ
+ * Создаем эффект "маленького окна" для иконок
+*/
+.fab-options {
+    position: fixed;
+    /* Центрируем блок по горизонтали */
+    left: 50%;
+    transform: translateX(-50%);
+    /* Располагаем над панелью навигации */
+    bottom: 70px;
+    
+    /* Стили для "окна" */
+    background-color: var(--surface-color); /* Фон как у других элементов */
+    border-radius: var(--border-radius);    /* Скругленные углы */
+    padding: 12px 20px;                     /* Внутренние отступы */
+    box-shadow: var(--shadow-medium);       /* Тень для эффекта глубины */
+    border: 1px solid var(--border-color);  /* Тонкая рамка */
+    
+    /* Располагаем иконки горизонтально */
+    display: flex;
+    gap: 20px; /* Расстояние между иконками */
+    
+    /* Начальное состояние для анимации */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-50%) translateY(20px); /* Начинаем ниже и по центру */
+    transition: all 0.3s ease;
+    pointer-events: none;
+    z-index: 1005;
+}
+
+/* Стили для отдельных, увеличенных иконок */
+.fab-option {
+    width: 56px;  /* <-- УВЕЛИЧИЛИ РАЗМЕР */
+    height: 56px; /* <-- УВЕЛИЧИЛИ РАЗМЕР */
+    background-color: var(--primary-accent);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: var(--shadow-soft);
+    text-decoration: none;
+    transition: transform 0.2s ease;
+}
+.fab-option:hover {
+    transform: scale(1.1);
+}
+.fab-option svg {
+    width: 30px; /* <-- УВЕЛИЧИЛИ РАЗМЕР */
+    height: 30px;/* <-- УВЕЛИЧИЛИ РАЗМЕР */
+}
+
+/* --- АНИМАЦИЯ ПРИ АКТИВАЦИИ --- */
+
+/* Поворот главной кнопки в крестик */
+.fab-container.is-open .fab-main {
+    transform: rotate(135deg);
+}
+
+/* Появление "окна" с иконками */
+.fab-container.is-open .fab-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0); /* Поднимаем в финальную позицию */
+    pointer-events: auto;
+}
+
+/* ==========================================================================
+   НОВЫЕ СТИЛИ ДЛЯ ИНТЕГРАЦИИ КНОПКИ В ПАНЕЛЬ (ЗАМЕНА)
+   ========================================================================== */
+
+/* --- 1. Обновляем саму панель навигации --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background-color: var(--surface-color);
+    border-top: 1px solid var(--border-color);
+    display: flex; /* Используем Flexbox для выравнивания */
+    justify-content: space-around; /* Равномерно распределяем элементы */
+    align-items: center; /* Выравниваем все по центру по вертикали */
+    z-index: 1000;
+}
+
+/* --- 2. Убираем лишнее позиционирование у контейнера FAB --- */
+.fab-container {
+    position: relative; /* Меняем absolute на relative */
+    /* Убираем все старые свойства позиционирования */
+    left: auto;
+    transform: none;
+    bottom: auto;
+    /* Задаем размеры и z-index, чтобы кнопка была "выше" панели */
+    width: 72px;
+    height: 72pxpx;
+    z-index: 1010;
+}
+
+/* --- 3. "Приподнимаем" саму кнопку над панелью --- */
+.fab-main {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--primary-accent), #ffc107);
+    color: #000;
+    border: 3px solid var(--surface-color);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: var(--shadow-medium);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    
+    /* Вот магия, которая поднимает кнопку вверх */
+    transform: translateY(-15px);
+}
+
+.fab-main:hover {
+    transform: translateY(-20px) scale(1.1); /* Сохраняем подъем при наведении */
+}
+
+/* --- 4. Корректируем положение выпадающего меню --- */
+.fab-options {
+    position: fixed;
+    left: 50%;
+    /* Ставим его чуть выше панели навигации */
+    bottom: 85px; 
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius);
+    padding: 12px 20px;
+    box-shadow: var(--shadow-medium);
+    border: 1px solid var(--border-color);
+    display: flex;
+    gap: 20px;
+    opacity: 0;
+    visibility: hidden;
+    /* Центрируем и сдвигаем вниз для анимации появления */
+    transform: translateX(-50%) translateY(20px); 
+    transition: all 0.3s ease;
+    pointer-events: none;
+    z-index: 1005;
+}
+
+/* --- 5. Анимации открытия (остаются почти без изменений) --- */
+.fab-container.is-open .fab-main {
+    /* При открытии кнопка поворачивается и возвращается на место */
+    transform: translateY(-20px) rotate(135deg); 
+}
+
+.fab-container.is-open .fab-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0); /* Поднимаем в финальную позицию */
+    pointer-events: auto;
+}
+
+/* Стили для глобального индикатора загрузки */
+#app-loader {
+  position: fixed;
+  inset: 0; /* Растягивает на весь экран (top: 0; left: 0; right: 0; bottom: 0;) */
+  background-color: var(--background-color);
+  z-index: 9999; /* Выше всех остальных элементов */
+  display: grid;
+  place-items: center;
+  transition: opacity 0.5s ease; /* Для плавного исчезновения */
+}
+  </style>
+</head>
+<body>
+
+<body>
+  <div id="app-loader">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="header-fixed">
+    <button id="hamburger-btn" class="icon-button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <button id="back-button" class="icon-button hidden">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <h2 id="header-title" class="header-title">Точки продаж</h2>
+    <button id="logout-btn" class="icon-button">
+       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+    </button>
+  </div>
+
+  <div id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+        <h3>Категории</h3>
+    </div>
+    <ul id="sidebar-categories" class="sidebar-categories">
+      </ul>
+  </div>
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+
+  <main id="app-content" class="app-content">
+    </main>
+
+    <div id="floating-checkout-container" class="floating-checkout-container hidden">
+    <button id="floating-checkout-btn" class="btn primary-btn"></button>
+  </div>
+
+
+<div class="bottom-nav">
+    <button class="nav-button active" data-view="home">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Главная</span>
+    </button>
+    
+    <button class="nav-button" data-view="orders">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+        <span>Заказы</span>
+    </button>
+    
+    <div class="fab-container">
+        <div class="fab-options" id="fab-options">
+            </div>
+        <button id="fab-main-btn" class="fab-main">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+        </button>
+    </div>
+
+    <button class="nav-button" data-view="cart">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        <span class="cart-badge hidden">0</span>
+        <span>Корзина</span>
+    </button>
+    
+    <button class="nav-button" data-view="profile">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span>Кабинет</span>
+    </button>
+</div>
+
+
+  <div id="login-screen">
+    <div class="login-container">
+        <h1>SUSHISAN-47</h1>
+        <p>Введите ваш номер телефона для входа или создания заказа</p>
+        <div class="form-field" style="margin-bottom: 20px;">
+            <input type="tel" id="login-phone-input" class="form-input" placeholder="+7 912 345-67-89">
+        </div>
+        <button id="login-button" class="btn primary-btn">Продолжить</button>
+    </div>
+    <div class="modal-spinner-overlay hidden"><div class="spinner"></div></div>
+  </div>
+  
+  <div id="order-details-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-button">&times;</button>
+      <h3>Ваш заказ</h3>
+      <div id="modal-order-items"></div>
+      <div class="modal-footer">
+        <div class="modal-summary">Итого: <span id="modal-order-total">0</span> руб</div>
+        <div class="form-button-group">
+          <button id="continue-shopping-button" class="btn secondary-btn">Дополнить заказ</button>
+          <button id="modal-go-to-checkout" class="btn primary-btn">Перейти к оформлению</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="checkout-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-spinner-overlay hidden">
+        <div class="spinner"></div>
+      </div>
+      <button class="close-button">&times;</button>
+      <h3>Оформление заказа</h3>
+      
+      <form id="order-form" class="order-form">
+        <div class="form-field">
+            <label for="clientName">Ваше имя</label>
+            <input type="text" id="clientName" class="form-input" required>
+        </div>
+
+        <div class="form-field">
+            <label for="clientPhone">Телефон (WhatsApp)</label>
+            <input type="tel" id="clientPhone" class="form-input" required>
+        </div>
+        
+<div class="form-field full-width" id="deliveryAddressContainer">
+    <label for="deliveryAddress">Адрес доставки</label>
+    <input type="text" id="deliveryAddress" class="form-input" required>
+</div>
+        
+        <div class="form-field full-width" id="delivery-type-container">
+            <p class="form-legend">Как хотите получить заказ?</p>
+            <div class="chip-group" id="delivery-type-chips">
+              </div>
+            <p class="single-option-notice hidden" id="delivery-type-notice"></p>
+        </div>
+
+<div class="form-field full-width payment-group">
+    <div class="payment-method-options" id="payment-method-container">
+        <p class="form-legend">Способ оплаты</p>
+        <div class="chip-group" id="payment-method-chips">
+        </div>
+        <p class="single-option-notice hidden" id="payment-method-notice"></p>
+    </div>
+</div>
+
+<div id="change-from-container" class="form-field full-width hidden">
+    <label for="changeFrom">С какой купюры нужна сдача?</label>
+    <input type="text" id="changeFrom" class="form-input" placeholder="Например: 5000 руб">
+</div>
+
+        <div id="time-selection-section" class="form-field hidden full-width">
+          <p id="time-label" class="form-legend">Время</p>
+          <div class="time-inputs">
+            <input type="date" id="deliveryDate" class="form-input">
+            <input type="time" id="deliveryTime" class="form-input">
+          </div>
+          <p class="time-comment">
+            <b></b>
+          </p>
+        </div>
+
+        <div class="form-field full-width">
+          <label for="clientComments">Комментарии к заказу</label>
+          <textarea id="clientComments" rows="2" placeholder="Этаж, подъезд, особые пожелания..."></textarea>
+        </div>
+      </form>
+
+      <div class="modal-form-footer">
+        <button type="button" class="btn primary-btn" id="submit-order-button">Оформить заказ</button>
+      </div>
+      
+    </div>
+  </div>
+
+  <div id="order-confirmation-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-button">&times;</button>
+      <h3>✅ Заказ принят!</h3>
+      <p>
+        Ваш заказ <strong id="confirmed-order-number"></strong> принят! Благодарим вас за выбор! Наши сотрудники скоро свяжутся с вами. Если вам не позвонили в течении 15 минут, прошу позвонить по номеру <a href="tel:+79650184848" style="color: var(--text-primary); text-decoration: underline;">+7 965 018 4848</a>. Заранее желаем вам приятного аппетита!
+      </p>
+      <button id="return-to-start-button" class="btn primary-btn">Новый заказ</button>
+    </div>
+  </div>
+
+  <div id="invalid-time-modal" class="modal">
+  <div class="modal-content">
+    <h3>Некорректное время</h3>
+    <p id="invalid-time-text" style="text-align: center; line-height: 1.6; font-size: 1.1em;"></p>
+    <button id="invalid-time-confirm-btn" class="btn primary-btn">Да, я понимаю</button>
+    <button id="invalid-time-cancel-btn" class="btn secondary-btn">Выбрать другое время</button>
+  </div>
+</div>
+  
+  <div id="error-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-button">&times;</button>
+      <h3>❌ Ошибка!</h3>
+      <p id="error-message"></p>
+    </div>
+  </div>
+  
+  <div id="time-confirmation-modal" class="modal">
+    <div class="modal-content" style="text-align: center;">
+        <h3>Подтверждение времени</h3>
+        <p id="time-confirmation-text" style="line-height: 1.6; font-size: 1.1em;"></p>
+        <div class="auto-submit-timer">
+            <p>Заказ будет отправлен через <b id="countdown-timer">5</b> сек...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+        <button id="time-cancel-btn" class="btn secondary-btn" style="margin-top: 20px;">Отменить отправку</button>
+    </div>
+  </div>
+
+  <div id="invalid-time-modal" class="modal">
+    <div class="modal-content">
+      <h3>Некорректное время</h3>
+      <p id="invalid-time-text" style="text-align: center; line-height: 1.6; font-size: 1.1em;"></p>
+      <button id="invalid-time-confirm-btn" class="btn primary-btn">Да, продолжить с этим временем</button>
+      <button id="invalid-time-cancel-btn" class="btn secondary-btn">Нет, я выберу другое</button>
+    </div>
+  </div>
+
+  <div id="item-details-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-button">&times;</button>
+      <img id="modal-item-image" src="" alt="Фото блюда">
+      <div class="modal-item-body">
+        <h3 id="modal-item-name"></h3>
+        <p id="modal-item-description"></p>
+        <div class="item-price-actions">
+          <div id="modal-item-price-container" class="price-container">
+            </div>
+          <div id="modal-item-controls" class="item-action-controls" data-item-name="" data-item-price="" data-item-image="">
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="addon-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-button">&times;</button>
+      <h3>Добавить к <span id="addon-modal-item-name"></span>?</h3>
+      <div id="addon-modal-list" class="modal-order-items">
+      </div>
+      <div class="modal-footer">
+        <button id="confirm-addons-btn" class="btn primary-btn">Добавить в корзину</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="location-closed-modal" class="modal">
+  <div class="modal-content" style="text-align: center;">
+    <button class="close-button">&times;</button>
+    <h3 id="location-closed-name"></h3>
+    <p style="font-size: 1.2em; line-height: 1.6;">
+        К сожалению, мы сейчас закрыты.
+    </p>
+    <p id="location-closed-hours" style="color: var(--text-secondary);"></p>
+  </div>
+</div>
+
+<div id="info-modal" class="modal">
+  <div class="modal-content">
+    <button class="close-button">&times;</button>
+    <h3 id="info-modal-title"></h3>
+    <div id="info-modal-body" style="text-align: left; line-height: 1.6;">
+      </div>
+    <button id="info-modal-ok-btn" class="btn primary-btn">Понятно</button>
+  </div>
+</div>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+  // ===============================================================
+  //    1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+  // ===============================================================
+  let cart = [];
+  let clientInfo = null;
+  let currentUserPhone = null;
+  let activeOrdersCache = [];
+  let allLocationsCache = [];
+  let editingOrderState = { number: null, mode: null };
+  let allGroupedMenuItems = {};
+  let allAddonItems = [];
+  let allPromoItems = [];
+  let selectedLocation = null;
+  let deliveryTimes = {};
+  let appSettings = {};
+  let globalItemsCache = {};
+  let currentView = 'home'; // Отслеживаем текущий активный экран
+  let contactLinks = [];
+
+
+  // ===============================================================
+  //    2. ОБЪЕКТ ДЛЯ БЫСТРОГО ДОСТУПА К ЭЛЕМЕНТАМ DOM
+  // ===============================================================
+  const ICONS = {
+    phone: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>`,
+    whatsapp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#25D366" d="M19.7,4.4c-1.8-1.8-4.1-2.8-6.7-2.8c-5.2,0-9.4,4.2-9.4,9.4c0,1.7,0.4,3.3,1.3,4.8L3,21l5.4-1.4c1.4,0.8,3,1.2,4.6,1.2h0c5.2,0,9.4-4.2,9.4-9.4C22.5,8.5,21.5,6.2,19.7,4.4z"/><path fill="#FFFFFF" d="M16.5,13.3c-0.2-0.1-1-0.5-1.2-0.6c-0.2-0.1-0.3-0.1-0.5,0.1c-0.1,0.2-0.4,0.6-0.5,0.7c-0.1,0.1-0.2,0.2-0.4,0.1c-0.2-0.1-0.9-0.3-1.8-1.1c-0.7-0.6-1.1-1.4-1.3-1.6c-0.1-0.2,0-0.3,0.1-0.4c0.1-0.1,0.2-0.2,0.4-0.4c0.1-0.1,0.2-0.2,0.2-0.3c0.1-0.1,0-0.3,0-0.4C11.5,9,11,7.9,10.8,7.4c-0.2-0.5-0.4-0.4-0.5-0.4C10.1,7,9.9,7,9.7,7c-0.2,0-0.5,0.1-0.7,0.3c-0.2,0.2-0.9,0.8-0.9,2.1c0,1.2,0.9,2.4,1,2.6c0.1,0.2,1.8,2.8,4.4,3.9c0.6,0.3,1.1,0.4,1.5,0.5c0.6,0.1,1.2,0.1,1.6-0.1c0.5-0.2,1-0.5,1.2-1c0.2-0.4,0.2-0.8,0.1-0.9C16.9,13.5,16.7,13.4,16.5,13.3z"/></svg>',
+    telegram: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2L15 22 11 13 2 9 22 2z"></path></svg>`,
+    vk: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30"><circle cx="12" cy="12" r="10" fill="#0077FF"/><path fill="#FFF" d="M0 23.04C0 12.1788 0 6.74826 3.37413 3.37413C6.74826 0 12.1788 0 23.04 0H24.96C35.8212 0 41.2517 0 44.6259 3.37413C48 6.74826 48 12.1788 48 23.04V24.96C48 35.8212 48 41.2517 44.6259 44.6259C41.2517 48 35.8212 48 24.96 48H23.04C12.1788 48 6.74826 48 3.37413 44.6259C0 41.2517 0 35.8212 0 24.96V23.04Z"/></svg>',
+};
+  const D = {
+    // Новая структура
+    header: {
+      el: document.querySelector('.header-fixed'),
+      hamburgerBtn: document.getElementById('hamburger-btn'),
+      backButton: document.getElementById('back-button'),
+      title: document.getElementById('header-title'),
+      logoutBtn: document.getElementById('logout-btn'),
+    },
+    sidebar: {
+      el: document.getElementById('sidebar'),
+      overlay: document.getElementById('sidebar-overlay'),
+      categoriesList: document.getElementById('sidebar-categories'),
+    },
+    appContent: document.getElementById('app-content'),
+    bottomNav: {
+      el: document.querySelector('.bottom-nav'),
+      buttons: document.querySelectorAll('.nav-button'),
+      cartBadge: document.querySelector('.cart-badge'),
+    },
+    loginScreen: document.getElementById('login-screen'),
+    loginInput: document.getElementById('login-phone-input'),
+    loginButton: document.getElementById('login-button'),
+    loginSpinner: document.querySelector('#login-screen .modal-spinner-overlay'),
+    
+    // Модальные окна (остаются)
+    allModals: document.querySelectorAll('.modal'),
+    orderDetails: {
+      el: document.getElementById('order-details-modal'),
+      items: document.getElementById('modal-order-items'),
+      total: document.getElementById('modal-order-total'),
+      continueBtn: document.getElementById('continue-shopping-button'),
+      goToCheckoutBtn: document.getElementById('modal-go-to-checkout'),
+    },
+    checkout: {
+      el: document.getElementById('checkout-modal'),
+      form: document.getElementById('order-form'),
+      submitBtn: document.getElementById('submit-order-button'),
+      deliveryTypeChips: document.getElementById('delivery-type-chips'),
+      paymentMethodChips: document.getElementById('payment-method-chips'),
+      changeFromContainer: document.getElementById('change-from-container'),
+      timeSection: document.getElementById('time-selection-section'),
+      timeLabel: document.getElementById('time-label'),
+      deliveryDate: document.getElementById('deliveryDate'),
+      deliveryTime: document.getElementById('deliveryTime'),
+      deliveryAddressContainer: document.getElementById('deliveryAddressContainer')
+    },
+    confirmation: {
+      el: document.getElementById('order-confirmation-modal'),
+      orderNumber: document.getElementById('confirmed-order-number'),
+      newOrderBtn: document.getElementById('return-to-start-button'),
+    },
+    error: {
+      el: document.getElementById('error-modal'),
+      message: document.getElementById('error-message'),
+    },
+    itemDetailsModal: {
+        el: document.getElementById('item-details-modal'),
+        image: document.getElementById('modal-item-image'),
+        name: document.getElementById('modal-item-name'),
+        description: document.getElementById('modal-item-description'),
+        priceContainer: document.getElementById('modal-item-price-container'),
+        controls: document.getElementById('modal-item-controls')
+    },
+    addonModal: {
+        el: document.getElementById('addon-modal'),
+        itemName: document.getElementById('addon-modal-item-name'),
+        list: document.getElementById('addon-modal-list'),
+        confirmBtn: document.getElementById('confirm-addons-btn'),
+    },
+    // Добавь это свойство внутрь объекта D
+floatingCheckout: {
+  container: document.getElementById('floating-checkout-container'),
+  button: document.getElementById('floating-checkout-btn'),
+},
+infoModal: {
+    el: document.getElementById('info-modal'),
+    title: document.getElementById('info-modal-title'),
+    body: document.getElementById('info-modal-body'),
+    okBtn: document.getElementById('info-modal-ok-btn'),
+    closeBtn: document.querySelector('#info-modal .close-button')
+},
+// Внутри объекта D, добавьте этот блок:
+invalidTimeModal: {
+    el: document.getElementById('invalid-time-modal'),
+    text: document.getElementById('invalid-time-text'),
+    confirmBtn: document.getElementById('invalid-time-confirm-btn'),
+    cancelBtn: document.getElementById('invalid-time-cancel-btn')
+},
+    // и другие модальные окна, если они понадобятся
+  };
+
+
+  // ===============================================================
+  //    3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+  // ===============================================================
+  const findMenuItemByName = (name) => {
+    for (const group in allGroupedMenuItems) {
+        const item = allGroupedMenuItems[group].find(i => i.name === name);
+        if (item) return item;
+    }
+    const promoItem = allPromoItems.find(i => i.name === name);
+    if (promoItem) return promoItem;
+    const cachedItem = globalItemsCache[name.toLowerCase()];
+    if (cachedItem) {
+        console.warn(`Товар "${name}" не найден в меню для текущей точки, но найден в общем кэше.`);
+        return cachedItem;
+    }
+    console.error("Не удалось найти товар по имени:", name);
+    return { name: name, price: 0, imageUrl: '', description: 'Товар не найден', hasAddons: false };
+  };
+
+  const truncateText = (text, wordLimit) => { if (!text) return { short: '', isTruncated: false }; const words = text.split(' '); if (words.length > wordLimit) { return { short: words.slice(0, wordLimit).join(' ') + '...', isTruncated: true }; } return { short: text, isTruncated: false }; };
+
+// ЗАМЕНИ ЭТУ ФУНКЦИЮ
+const normalizePhoneRU = (phone) => {
+  if (!phone) return null;
+  // Удаляем все, кроме цифр
+  let cleaned = phone.replace(/\D/g, '');
+  
+  // Приводим к стандарту (начинается с 7)
+  if (cleaned.startsWith('8')) {
+      cleaned = '7' + cleaned.substring(1);
+  } else if (cleaned.length === 10 && (cleaned.startsWith('9') || cleaned.startsWith('4'))) {
+      // Для номеров без кода страны (напр. 963... или 495...)
+      cleaned = '7' + cleaned;
+  }
+  
+  // === НОВАЯ ПРОВЕРКА ДЛИНЫ ===
+  // Российский номер должен состоять из 11 цифр (7 + 10 цифр)
+  if (cleaned.length !== 11) {
+    return null; // Возвращаем null, если длина неправильная
+  }
+  
+  return cleaned;
+};
+
+
+  // ===============================================================
+  //    4. УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ (UI)
+  // ===============================================================
+  const UI = {
+    showModal: (modal) => { modal.classList.add('active'); },
+    hideModal: (modal) => { modal.classList.remove('active'); },
+    showError: (message) => { D.error.message.textContent = message; UI.showModal(D.error.el); },
+    toggleSidebar: (forceState) => {
+      const isOpen = D.sidebar.el.classList.contains('is-open');
+      const shouldOpen = forceState === 'open' || (forceState !== 'close' && !isOpen);
+      D.sidebar.el.classList.toggle('is-open', shouldOpen);
+      D.sidebar.overlay.classList.toggle('is-open', shouldOpen);
+    },
+    
+// ЗАМЕНИ ЭТУ ФУНКЦИЮ
+renderView: (viewName) => {
+  currentView = viewName;
+  D.appContent.innerHTML = ''; 
+  UI.toggleSidebar('close'); 
+
+  // Скрываем плавающую кнопку, если мы НЕ на главном экране
+  if (viewName !== 'home') {
+    D.floatingCheckout.container.classList.add('hidden');
+  } else {
+    // При возврате на главный экран, проверяем, нужно ли показать кнопку
+    App.update(); 
+  }
+
+  D.bottomNav.buttons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === viewName);
+  });
+
+  switch(viewName) {
+    case 'home':
+      Render.homeView();
+      break;
+    case 'orders':
+      Render.ordersView();
+      break;
+    case 'cart':
+      Render.cartView();
+      break;
+    case 'profile':
+      Render.profileView();
+      break;
+  }
+},
+
+    updateCartDisplay: () => {
+        const totalItems = Cart.getTotalItems();
+        D.bottomNav.cartBadge.textContent = totalItems;
+        D.bottomNav.cartBadge.classList.toggle('hidden', totalItems === 0);
+    }
+  };
+
+
+  // ===============================================================
+  //    5. УПРАВЛЕНИЕ КОРЗИНОЙ (Cart) - без изменений
+  // ===============================================================
+   const Cart = {
+    find: (uniqueId) => cart.find(i => i.uniqueId === uniqueId),
+    add: (item, selectedAddons = []) => {
+        const addonsTotal = selectedAddons.reduce((sum, addon) => sum + addon.price * addon.quantity, 0);
+        const basePrice = item.promoPrice != null ? item.promoPrice : item.price;
+        if (typeof basePrice !== 'number' || isNaN(basePrice)) {
+            console.error('Недопустимая цена для товара:', item.name, basePrice);
+            UI.showError(`Произошла ошибка с ценой товара "${item.name}". Заказ не может быть обработан.`);
+            return;
+        }
+        const finalPrice = basePrice + addonsTotal;
+        cart.push({
+            uniqueId: Date.now(),
+            name: item.name,
+            quantity: 1,
+            basePrice: basePrice,
+            price: finalPrice,
+            imageUrl: item.imageUrl,
+            addons: selectedAddons
+        });
+        App.update(item.name);
+    },
+    updateQuantity: (uniqueId, change) => {
+        const item = Cart.find(uniqueId);
+        if (!item) return;
+        item.quantity += change;
+        if (item.quantity <= 0) {
+            cart = cart.filter(i => i.uniqueId !== uniqueId);
+        }
+        App.update(item.name);
+    },
+    clear: () => {
+        cart = [];
+        localStorage.removeItem('sushiBatCart');
+    },
+    getTotal: () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    getTotalItems: () => cart.reduce((sum, item) => sum + item.quantity, 0),
+    save: () => {
+        localStorage.setItem('sushiBatCart', JSON.stringify(cart));
+        localStorage.setItem('sushiBatLocation', JSON.stringify(selectedLocation));
+    },
+    load: () => {
+        const savedCartJSON = localStorage.getItem('sushiBatCart');
+        const savedLocationJSON = localStorage.getItem('sushiBatLocation');
+        cart = [];
+        if (savedCartJSON && savedLocationJSON) {
+            const savedLocation = JSON.parse(savedLocationJSON);
+            // Загружаем корзину, только если она относится к текущей выбранной точке
+            if (selectedLocation && savedLocation.name === selectedLocation.name) {
+                try {
+                    const parsedCart = JSON.parse(savedCartJSON);
+                    if (Array.isArray(parsedCart)) {
+                        cart = parsedCart.filter(item => item != null && typeof item.price === 'number' && !isNaN(item.price));
+                    }
+                } catch (e) {
+                    console.error("Ошибка парсинга корзины из localStorage:", e);
+                    Cart.clear();
+                }
+            }
+        }
+        UI.updateCartDisplay();
+    },
+    findByName: (name) => cart.find(i => i.name === name),
+    getTotalQuantityByName: (name) => {
+        return cart.filter(item => item.name === name)
+                   .reduce((sum, item) => sum + item.quantity, 0);
+    },
+    removeOneByName: (name) => {
+        for (let i = cart.length - 1; i >= 0; i--) {
+            if (cart[i].name === name) {
+                cart[i].quantity--;
+                if (cart[i].quantity <= 0) {
+                    cart.splice(i, 1);
+                }
+                break;
+            }
+        }
+        App.update(name);  
+    },
+  };
+
+// ===============================================================
+//    6. ФУНКЦИИ ОТРИСОВКИ (Render)
+// ===============================================================
+  const Render = {
+    spinner: () => `<div class="spinner-container" style="display:grid; place-items:center; padding: 40px;"><div class="spinner"></div></div>`,
+// ЗАМЕНИ ЭТУ ФУНКЦИЮ ЦЕЛИКОМ
+homeView: () => {
+    // Сначала проверяем, выбрана ли уже точка продаж
+    if (selectedLocation) {
+        // Если да, то просто рисуем экран с меню и настраиваем шапку
+        D.header.title.textContent = 'Категории меню';
+        // Кнопка "Назад" нужна, только если точек больше одной
+        D.header.backButton.classList.toggle('hidden', allLocationsCache.length <= 1);
+        D.header.hamburgerBtn.classList.remove('hidden'); // Уверенно показываем гамбургер
+        Render.menuScreen();
+        Cart.load();
+        return; // Завершаем выполнение функции
+    }
+
+    // Если точка не выбрана, смотрим, сколько их всего
+    if (allLocationsCache && allLocationsCache.length === 1) {
+        // Если точка одна, выбираем ее и вызываем модальное окно
+        selectedLocation = allLocationsCache[0];
+        localStorage.setItem('sushiBatLocation', JSON.stringify(selectedLocation));
+        App.showWaitingTimeModal(selectedLocation); // Дальнейшие действия произойдут после закрытия окна
+    } else {
+        // Если точек много (или ноль), показываем экран выбора
+        D.header.title.textContent = 'Точки продаж';
+        D.header.backButton.classList.add('hidden');
+        D.header.hamburgerBtn.classList.add('hidden');
+        Render.locationsScreen();
+    }
+},
+ordersView: () => {
+    // Управляем кнопками в шапке
+    D.header.title.textContent = 'Мои заказы';
+    D.header.backButton.classList.add('hidden');
+    D.header.hamburgerBtn.classList.add('hidden');
+    D.appContent.innerHTML = Render.spinner();
+
+    google.script.run
+        .withSuccessHandler(orders => {
+            activeOrdersCache = orders; // Сохраняем заказы в кэш для быстрого доступа
+            
+            // === НОВЫЙ БЛОК: HTML для вкладок ===
+            let html = `
+                <div class="view-container">
+                    <div class="tab-nav">
+                        <button class="tab-link active" data-tab="current">Текущие</button>
+                        <button class="tab-link" data-tab="history">История</button>
+                    </div>
+                    <div id="orders-content">
+                        </div>
+                </div>
+            `;
+            D.appContent.innerHTML = html;
+            
+            // Сразу после отрисовки вкладок, показываем "Текущие" по умолчанию
+            Render.filterAndShowOrders('current');
+        })
+        .withFailureHandler(err => UI.showError("Не удалось загрузить историю заказов."))
+        .getClientOrders(currentUserPhone, globalItemsCache);
+},
+
+// Новая функция для фильтрации и показа заказов
+filterAndShowOrders: (tabName) => {
+    const contentEl = document.getElementById('orders-content');
+    if (!contentEl) return;
+
+    let ordersToShow = [];
+    let emptyMessage = '';
+
+    if (tabName === 'current') {
+        ordersToShow = activeOrdersCache.filter(o => o.status === 'Новый' || o.status === 'Подтвержден' || o.status === 'Отправлен');
+        emptyMessage = 'Нет активных заказов.';
+    } else { // history
+        ordersToShow = activeOrdersCache.filter(o => o.status === 'Доставлен' || o.status === 'Отказ');
+        emptyMessage = 'История заказов пуста.';
+    }
+
+    if (ordersToShow.length > 0) {
+        contentEl.innerHTML = ordersToShow.map(order => Render.orderCard(order)).join('');
+    } else {
+        contentEl.innerHTML = `<p style="text-align:center; color: var(--text-secondary);">${emptyMessage}</p>`;
+    }
+},
+
+    cartView: () => {
+      // ИСПРАВЛЕНИЕ: Управляем кнопками в шапке
+      D.header.title.textContent = 'Корзина';
+      D.header.backButton.classList.add('hidden');
+      D.header.hamburgerBtn.classList.add('hidden');
+      
+      let html = '<div class="view-container cart-view">';
+      if (cart.length === 0) {
+          html += '<p style="text-align:center; color: var(--text-secondary);">Ваша корзина пуста</p>';
+      } else {
+          cart.forEach(item => html += Render.cartItem(item));
+          html += `<div class="cart-summary">
+                     <div class="summary-line"><span>Итого:</span><strong>${Cart.getTotal().toFixed(0)} руб</strong></div>
+                     <button id="go-to-checkout-btn" class="btn primary-btn">Оформить заказ</button>
+                   </div>`;
+      }
+      html += '</div>';
+      D.appContent.innerHTML = html;
+    },
+
+    profileView: () => {
+      // ИСПРАВЛЕНИЕ: Управляем кнопками в шапке
+      D.header.title.textContent = 'Кабинет';
+      D.header.backButton.classList.add('hidden');
+      D.header.hamburgerBtn.classList.add('hidden');
+      const name = clientInfo ? clientInfo.name : '';
+      const address = clientInfo ? clientInfo.address : '';
+      D.appContent.innerHTML = `<div class="view-container"><form id="profile-form" class="profile-form"> ... </form></div>`; // Сокращено для краткости, код тот же
+      const form = D.appContent.querySelector('#profile-form');
+      form.innerHTML = `
+        <div class="form-field"><label for="profile-name">Имя</label><input type="text" id="profile-name" class="form-input" value="${name}" required></div>
+        <div class="form-field"><label for="profile-phone">Телефон</label><input type="tel" id="profile-phone" class="form-input" value="${currentUserPhone}" disabled></div>
+        <div class="form-field"><label for="profile-address">Основной адрес доставки</label><textarea id="profile-address" class="form-input" rows="3" required>${address}</textarea></div>
+        <button type="submit" class="btn primary-btn">Сохранить изменения</button>`;
+    },
+
+  locationsScreen: () => {
+      let html = '<div class="view-container grid-layout">';
+      if (allLocationsCache && allLocationsCache.length > 0) {
+          allLocationsCache.forEach(loc => {
+              const isClosed = loc.status === 'Закрыто';
+              html += `
+              <button class="location-button ${isClosed ? 'closed' : ''}" data-location-name="${loc.name}" ${isClosed ? 'disabled' : ''}>
+                <strong>${loc.name}</strong>
+                <p>${loc.address}</p>
+                ${loc.workingHoursText ? `<p class="location-hours">${loc.workingHoursText}</p>` : ''}
+                <span class="location-status ${isClosed ? 'closed' : 'open'}">${loc.statusText}</span>
+              </button>
+              `;
+          });
+      } else {
+          html += '<p class="empty-state">Точки продаж не найдены.</p>';
+      }
+      html += '</div>';
+      D.appContent.innerHTML = html;
+  },
+
+  menuScreen: () => {
+      D.appContent.innerHTML = Render.spinner();
+      D.header.backButton.onclick = () => {
+          selectedLocation = null;
+          Cart.clear();
+          localStorage.removeItem('sushiBatLocation');
+          UI.renderView('home');
+      };
+      google.script.run
+          .withSuccessHandler(data => {
+            document.getElementById('app-loader').style.display = 'none';
+              allGroupedMenuItems = data.menuItems;
+              allPromoItems = data.promoItems || [];
+              let sidebarHtml = '';
+              if (allPromoItems.length > 0) {
+                  sidebarHtml += `<li data-category="promo">🔥 Все акции</li>`;
+              }
+              Object.keys(allGroupedMenuItems).sort().forEach(category => {
+                  if (category !== 'Дополнительно') {
+                     sidebarHtml += `<li data-category="${category}">${category}</li>`;
+                  }
+              });
+              D.sidebar.categoriesList.innerHTML = sidebarHtml;
+              Render.categories();
+          })
+          .withFailureHandler(err => UI.showError('Не удалось загрузить меню.'))
+          .getMenuItems(selectedLocation.name);
+  },
+
+  categories: () => {
+      D.header.title.textContent = 'Категории меню';
+      let html = '<div class="view-container grid-layout category-grid">';
+      if (allPromoItems.length > 0) {
+          html += `
+              <div class="category-card" data-category-name="promo">
+                  <div class="category-slider-container">
+                      ${allPromoItems.slice(0, 5).map((item, index) => `
+                          <div class="category-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${item.imageUrl}')"></div>
+                      `).join('')}
+                  </div>
+                  <h3 class="category-card-title">🔥 Все акции</h3>
+              </div>
+          `;
+      }
+      Object.keys(allGroupedMenuItems).forEach(categoryName => {
+          if (categoryName === 'Дополнительно') return;
+          const itemsInCategory = allGroupedMenuItems[categoryName];
+          html += `
+              <div class="category-card" data-category-name="${categoryName}">
+                  <div class="category-slider-container">
+                       ${itemsInCategory.slice(0, 5).map((item, index) => `
+                          <div class="category-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${item.imageUrl}')"></div>
+                      `).join('')}
+                  </div>
+                  <h3 class="category-card-title">${categoryName}</h3>
+              </div>
+          `;
+      });
+      html += '</div>';
+      D.appContent.innerHTML = html;
+      App.initCategorySliders();
+  },
+
+  items: (categoryName) => {
+      D.header.backButton.onclick = () => Render.categories();
+      let html = '<div class="view-container grid-layout menu-items-grid">';
+      let itemsToShow = [];
+      if (categoryName === 'all') {
+          D.header.title.textContent = 'Меню';
+          itemsToShow = Object.values(allGroupedMenuItems).flat();
+      } else if (categoryName === 'promo') {
+          D.header.title.textContent = 'Акции';
+          itemsToShow = allPromoItems;
+      } else {
+          D.header.title.textContent = categoryName;
+          itemsToShow = allGroupedMenuItems[categoryName] || [];
+      }
+      if (itemsToShow.length === 0) {
+          html += '<p class="empty-state">В этой категории пока нет товаров.</p>';
+      } else {
+          itemsToShow.forEach(item => {
+              if(item.group === 'Дополнительно') return;
+              html += Render.menuItemCard(item);
+          });
+      }
+      html += '</div>';
+      D.appContent.innerHTML = html;
+      App.update();
+  },
+
+  menuItemCard: (item) => {
+    const currentPrice = item.promoPrice || item.price;
+    let priceHtml = `<p class="price">${currentPrice} руб</p>`;
+    if (item.promoPrice) { priceHtml = `<span class="old-price">${item.price} руб</span>` + priceHtml; }
+    const { short: shortDescription, isTruncated } = truncateText(item.description, 10);
+    let descriptionHtml = `<p class="item-description">${shortDescription}</p>`;
+    if (isTruncated) { descriptionHtml += `<button class="details-button" data-item-name="${item.name}">Подробнее</button>`; }
+    const promoStickerHtml = item.promoPrice ? '<div class="promo-sticker">Акция</div>' : '';
+    return `
+      <div class="menu-item" data-item-name="${item.name}">
+        ${promoStickerHtml}
+        <img src="${item.imageUrl}" alt="${item.name}">
+        <div class="item-details">
+            <h3>${item.name}</h3>
+            ${descriptionHtml}
+            <div class="item-price-actions">
+                <div class="price-container">${priceHtml}</div>
+                <div class="item-action-controls" data-item-name="${item.name}" data-item-has-addons="${item.hasAddons}">
+                    <button class="item-add-initial-btn">+</button>
+                    <div class="item-quantity-stepper hidden">
+                        <button class="decrease-btn">-</button>
+                        <span class="quantity">1</span>
+                        <button class="increase-btn">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>`;
+  },
+
+cartItem: (item) => {
+    // Рендеринг одного элемента для экрана корзины
+    let addonsHtml = '';
+    if (item.addons && item.addons.length > 0) {
+        addonsHtml = '<ul class="cart-item-addons">';
+        item.addons.forEach(addon => {
+            addonsHtml += `<li>+ ${addon.name} x${addon.quantity}</li>`;
+        });
+        addonsHtml += '</ul>';
+    }
+    // === НОВОЕ: Рассчитываем итоговую сумму для позиции ===
+    const itemTotal = (item.price * item.quantity).toFixed(0);
+
+    return `
+        <div class="cart-item">
+            <img src="${item.imageUrl}" class="cart-item-image">
+            <div class="cart-item-info">
+                <h4>${item.name}</h4>
+                <p>${item.price.toFixed(0)} руб / шт.</p>
+                ${addonsHtml}
+                <p class="cart-item-total">Итого: <strong>${itemTotal} руб</strong></p>
+            </div>
+            <div class="quantity-controls">
+                <button class="decrease-modal-btn" data-unique-id="${item.uniqueId}">-</button>
+                <span>${item.quantity}</span>
+                <button class="increase-modal-btn" data-unique-id="${item.uniqueId}">+</button>
+            </div>
+        </div>
+    `;
+},
+orderCard: (order) => {
+    let statusClass = '';
+    switch (order.status) {
+        case 'Новый': statusClass = 'new'; break;
+        case 'Подтвержден': statusClass = 'confirmed'; break;
+        case 'Отправлен': statusClass = 'sent'; break;
+        case 'Доставлен': statusClass = 'delivered'; break;
+        case 'Отказ': statusClass = 'cancelled'; break;
+    }
+
+    let actionsHtml = '';
+    if (order.status === 'Новый') {
+        actionsHtml = `
+            <div class="order-actions-container">
+                <button class="action-button edit" data-order-number="${order.number}" data-action="update">Изменить</button>
+                <button class="action-button cancel" data-order-number="${order.number}" data-action="cancel">Отменить</button>
+            </div>
+        `;
+    } // <-- ВОТ НЕДОСТАЮЩАЯ СКОБКА, ТЕПЕРЬ ОНА НА МЕСТЕ
+
+    /* === ЭТОТ БЛОК ТЕПЕРЬ ОТКЛЮЧЕН === */
+    /*
+    } else if (order.status === 'Подтвержден') {
+        actionsHtml = `
+            <div class="order-actions-container">
+                <button class="action-button add-to" data-order-number="${order.number}" data-action="add">Дополнить заказ</button>
+            </div>
+        `;
+    }
+    */
+    // ===============================================
+
+    let checkHtml = '...'; // Содержимое чека, как и раньше
+    let summaryHtml = '...'; // Содержимое итогов, как и раньше
+    
+    // (Я сократил код для чека и итогов, т.к. он не меняется, используй свою полную версию)
+    let subtotal = 0; const items = order.items || [];
+    checkHtml = '<div class="order-check-list">' + items.map(item => { if (!item) return ''; const itemTotal = (item.price || 0) * (item.quantity || 0); subtotal += itemTotal; let addonsHtml = ''; const addons = item.addons || []; if (addons.length > 0) { addonsHtml = addons.map(addon => { if (!addon) return ''; const addonTotal = (addon.price || 0) * (addon.quantity || 0); subtotal += addonTotal; return `<div class="order-check-addon"><span class="name">+ ${addon.name}</span><span>${addon.quantity}x${addon.price}=${addonTotal}</span></div>`; }).join(''); } return `<div class="order-check-item"><span class="name">${item.name}</span><span>${item.quantity}x${item.price}=${itemTotal}</span></div>` + addonsHtml; }).join('') + '</div>';
+    summaryHtml = `<div class="order-check-summary"><div class="summary-line"><span>Сумма по товарам</span><span>${subtotal.toFixed(0)} руб</span></div>`; if (order.deliveryFee > 0) { summaryHtml += `<div class="summary-line"><span>Доставка</span><span>${order.deliveryFee.toFixed(0)} руб</span></div>`; } summaryHtml += `<div class="summary-line total"><span>Итого к оплате</span><span>${order.total.toFixed(0)} руб</span></div></div>`;
+
+    return `
+    <div class="order-card">
+        <div class="order-card-header">
+            <h4>Заказ №${order.number}</h4>
+            <span class="order-card-status ${statusClass}">${order.status}</span>
+        </div>
+        <div class="order-card-body">
+            <p><b>Дата:</b> ${order.date}</p>
+            ${checkHtml}
+        </div>
+        ${summaryHtml}
+        ${actionsHtml} 
+    </div>
+    `;
+},
+
+ updateCardView: (name) => {
+    const quantity = Cart.getTotalQuantityByName(name);
+
+    // Этот блок для главной страницы, он работает.
+    document.querySelectorAll(`.menu-item[data-item-name="${name}"]`).forEach(card => {
+        const stepper = card.querySelector('.item-quantity-stepper');
+        const initialBtn = card.querySelector('.item-add-initial-btn');
+        if (quantity > 0) {
+            stepper.querySelector('.quantity').textContent = quantity;
+            stepper.classList.remove('hidden');
+            initialBtn.classList.add('hidden');
+        } else {
+            stepper.classList.add('hidden');
+            initialBtn.classList.remove('hidden');
+        }
+    });
+
+    // --- НАЧИНАЕТСЯ БЛОК ОТЛАДКИ ДЛЯ МОДАЛЬНОГО ОКНА ---
+    const modal = D.itemDetailsModal;
+    console.log('--- Запущена функция обновления для:', name);
+    
+    if (modal.el.classList.contains('active')) {
+        console.log('Условие 1: Модальное окно активно. (Проверка пройдена)');
+        
+        if (modal.controls.dataset.itemName === name) {
+            console.log('Условие 2: Имена товаров совпадают. (Проверка пройдена)');
+            console.log('Обновляю счетчик в модальном окне...');
+            
+            const stepper = modal.controls.querySelector('.item-quantity-stepper');
+            const initialBtn = modal.controls.querySelector('.item-add-initial-btn');
+            
+            if (quantity > 0) {
+                stepper.querySelector('.quantity').textContent = quantity;
+                stepper.classList.remove('hidden');
+                initialBtn.classList.add('hidden');
+            } else {
+                stepper.classList.add('hidden');
+                initialBtn.classList.remove('hidden');
+            }
+        } else {
+            console.error('ОШИБКА УСЛОВИЯ 2: Имена не совпадают! В модалке: "' + modal.controls.dataset.itemName + '", а обновляется: "' + name + '"');
+        }
+    } else {
+        console.log('Условие 1 не пройдено: Модальное окно НЕ активно.');
+    }
+    console.log('--- Обновление вида завершено ---');
+ },
+
+// ДОБАВЬ ЭТУ ФУНКЦИЮ ВНУТРЬ ОБЪЕКТА Render
+checkoutFormOptions: () => {
+    const { deliveryTypes, paymentMethods } = appSettings;
+    const deliveryChipsContainer = D.checkout.deliveryTypeChips;
+    const paymentChipsContainer = D.checkout.paymentMethodChips;
+
+    deliveryChipsContainer.innerHTML = '';
+    paymentChipsContainer.innerHTML = '';
+    
+    // Рендерим типы доставки
+    const enabledDeliveryTypes = Object.keys(deliveryTypes).filter(key => deliveryTypes[key]);
+    const typeIcons = {'Доставка': '🚀', 'На вынос': '🛍️', 'Зал': '🍽️'};
+    enabledDeliveryTypes.forEach((type, index) => {
+        const icon = typeIcons[type] || '✔️';
+        const chipHtml = `
+            <label class="chip">
+                <input type="radio" name="deliveryType" value="${type}" ${index === 0 ? 'checked' : ''} required>
+                <span>${icon} ${type}</span>
+            </label>`;
+        deliveryChipsContainer.insertAdjacentHTML('beforeend', chipHtml);
+    });
+
+    // Рендерим способы оплаты
+    const availablePaymentMethods = paymentMethods.filter(method => 
+        method.locations.length === 0 || method.locations.includes(selectedLocation.name)
+    );
+    const paymentIcons = {'Наличными': '💵', 'Переводом': '💳', 'Картой': '💳'};
+    availablePaymentMethods.forEach((method, index) => {
+        const icon = paymentIcons[method.name] || '💰';
+        const chipHtml = `
+            <label class="chip">
+                <input type="radio" name="paymentMethod" value="${method.name}" ${index === 0 ? 'checked' : ''} required>
+                <span>${icon} ${method.name}</span>
+            </label>`;
+        paymentChipsContainer.insertAdjacentHTML('beforeend', chipHtml);
+    });
+
+    App.setupDynamicEventListenersForForm(); // Вызываем новую функцию
+},
+
+  // === ВОТ НЕДОСТАЮЩАЯ ФУНКЦИЯ ===
+  itemDetailsModal: (itemName) => {    
+      let item = findMenuItemByName(itemName);
+      if (!item) return;
+      const modal = D.itemDetailsModal;    
+      const currentPrice = item.promoPrice != null ? item.promoPrice : item.price;
+      modal.image.src = item.imageUrl;    
+      modal.name.textContent = item.name;    
+      modal.description.textContent = item.description || 'Описание отсутствует.';    
+      let priceHtml = `<p class="price">${currentPrice.toFixed(0)} руб</p>`;    
+      if (item.promoPrice != null) { priceHtml = `<span class="old-price">${item.price.toFixed(0)} руб</span>` + priceHtml; }    
+      modal.priceContainer.innerHTML = priceHtml;    
+      modal.controls.dataset.itemName = item.name;
+      const quantity = Cart.getTotalQuantityByName(itemName);
+      modal.controls.innerHTML = `
+          <button class="item-add-initial-btn ${quantity > 0 ? 'hidden' : ''}">+</button>
+          <div class="item-quantity-stepper ${quantity > 0 ? '' : 'hidden'}">
+              <button class="decrease-btn">-</button>
+              <span class="quantity">${quantity}</span>
+              <button class="increase-btn">+</button>
+          </div>
+      `;
+      UI.showModal(modal.el);    
+  },
+contactFAB: (links) => {
+    const container = document.getElementById('fab-options');
+    if (!container || !links || links.length === 0) return;
+
+    let html = '';
+    // Создаем карту для сопоставления текста из таблицы с ключами иконок
+    const iconMap = {
+        'телефон': 'phone',
+        'вотсап': 'whatsapp',
+        'whatsapp': 'whatsapp',
+        'телеграм': 'telegram',
+        'вконтакте': 'vk',
+        'vk': 'vk'
+    };
+
+    // ПЕРЕВОРАЧИВАЕМ МАССИВ, чтобы ВКонтакте был первым (и оказался внизу/слева)
+    links.reverse().forEach(link => {
+        let href = '#';
+        const type = link.type.toLowerCase().trim();
+
+        // Формируем правильную ссылку
+        if (type === 'телефон') {
+            href = `tel:${link.value.replace(/\D/g, '')}`;
+        } else if (type.includes('вотсап') || type.includes('whatsapp')) {
+            href = link.value.startsWith('http') ? link.value : `https://wa.me/${link.value.replace(/\D/g, '')}`;
+        } else {
+            href = link.value.startsWith('http') ? link.value : `https://${link.value}`;
+        }
+        
+        // Находим иконку через нашу карту `iconMap`
+        const iconKey = iconMap[type];
+        const iconSvg = iconKey ? ICONS[iconKey] : ICONS.phone; // Если тип не найден, ставим телефон
+        
+        html += `<a href="${href}" target="_blank" class="fab-option">${iconSvg}</a>`;
+    });
+    
+    container.innerHTML = html;
+},
+};
+
+  // ===============================================================
+  //    7. ГЛАВНЫЙ ОБЪЕКТ ПРИЛОЖЕНИЯ (APP)
+  // ===============================================================
+// ЗАМЕНИТЕ ВЕСЬ СТАРЫЙ ОБЪЕКТ 'App' НА ЭТОТ НОВЫЙ
+const App = {
+  init: () => {
+    App.setupEventListeners();
+    const savedPhone = localStorage.getItem('sushiSanUserPhone');
+    if (savedPhone) {
+        currentUserPhone = savedPhone;
+        App.startUserSession();
+    } else {
+        document.getElementById('app-loader').style.display = 'none';
+        D.loginScreen.style.display = 'flex';
+    }
+  },
+
+  login: () => {
+    const rawPhoneNumber = D.loginInput.value.trim();
+    const phoneNumber = normalizePhoneRU(rawPhoneNumber);
+    if (!phoneNumber) {
+        return UI.showError("Неверный формат номера. Пожалуйста, введите 10 цифр после +7 (например, +7 912 345-67-89).");
+    }
+    currentUserPhone = phoneNumber;
+    localStorage.setItem('sushiSanUserPhone', phoneNumber);
+    App.startUserSession();
+  },
+
+  logout: () => {
+    localStorage.clear();
+    window.location.reload();
+  },
+
+// ЗАМЕНИТЕ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
+startUserSession: () => {
+  // Добавляем проверку прямо здесь
+  if (!currentUserPhone) {
+    alert("Критическая ошибка: не найден номер телефона. Возврат на экран входа.");
+    App.logout(); // Выходим из системы, если номера нет
+    return; // Прерываем выполнение функции
+  }
+
+  document.getElementById('app-loader').style.display = 'grid';
+  D.loginScreen.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(data => {
+        document.getElementById('app-loader').style.display = 'none';
+        clientInfo = data.clientData;
+        appSettings = data.settings;
+        deliveryTimes = data.deliveryTimes;
+        allLocationsCache = data.locations;
+        contactLinks = data.contactInfo || [];
+        google.script.run.withSuccessHandler(map => { globalItemsCache = map; }).getAllItemsMap();
+        Render.contactFAB(contactLinks);
+        UI.renderView('home');
+    })
+    .withFailureHandler(err => {
+        document.getElementById('app-loader').style.display = 'none';
+        UI.showError("Не удалось загрузить данные сессии: " + err.message + ". Попробуйте войти снова.");
+        App.logout();
+    })
+    .getUserSessionData(currentUserPhone);
+},
+
+  initCategorySliders: () => {
+    document.querySelectorAll('.category-card').forEach(card => {
+        const slides = card.querySelectorAll('.category-slide');
+        if (slides.length < 2) return;
+        let currentSlide = 0;
+        setInterval(() => {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (currentSlide + 1) % slides.length;
+            slides[currentSlide].classList.add('active');
+        }, 3000);
+    });
+  },
+
+  goToHome: () => {
+    if (currentView === 'home' && D.appContent.querySelector('.menu-items-grid')) {
+        Render.categories();
+        return;
+    }
+    UI.renderView('home');
+  },
+
+  selectLocation: (location) => {
+      selectedLocation = location;
+      App.showWaitingTimeModal(location); // Используем нашу универсальную функцию
+  },
+
+showWaitingTimeModal: (location) => {
+    // ВРЕМЕННАЯ БЛОКИРОВКА:
+    // Пропускаем показ информационного окна и сразу переходим к загрузке меню.
+    App.continueAfterLocationSelected();
+
+    /*
+    // --- СТАРЫЙ КОД ОКНА (сохранен здесь, чтобы можно было легко вернуть) ---
+    const modal = D.infoModal;
+    let htmlBody = '';
+    let title = '';
+    let buttonText = 'Понятно';
+
+    if (location.status === 'Закрыто') {
+        title = location.name;
+        htmlBody = `<p style="text-align: center; font-size: 1.2em;">К сожалению, мы сейчас закрыты.</p><p style="text-align: center; color: var(--text-secondary);">Наш график работы: ${location.workingHoursText}</p>`;
+        modal.okBtn.onclick = () => UI.hideModal(modal.el);
+        modal.closeBtn.onclick = () => UI.hideModal(modal.el);
+    } else {
+        const times = deliveryTimes[location.name];
+        if (allLocationsCache.length === 1) {
+            title = "Важная информация";
+            htmlBody += `
+                <div class="info-section">
+                    <div class="info-icon">🚚</div>
+                    <p>Доставка заказов осуществляется через наш собственный сервис.</p>
+                </div>
+                <div class="info-section">
+                    <div class="info-icon">💰</div>
+                    <p><strong>Бесплатная доставка</strong> при заказе от <strong>2000 руб</strong> в радиусе 5 км.</p>
+                    <p style="font-size: 0.9em; color: var(--text-secondary);">На большие расстояния стоимость рассчитывается дополнительно.</p>
+                </div>
+                <div class="info-section info-highlight">
+                    <div class="info-icon">📍</div>
+                    <p><strong>ВАЖНО:</strong> Пожалуйста, выберите правильную точку в зависимости от вашего района!</p>
+                </div>
+                <hr style="margin: 20px 0 16px; border-color: var(--border-color);">
+            `;
+        } else {
+            title = "Время ожидания";
+        }
+        if (times && (times.delivery > 0 || times.pickup > 0)) {
+            const formatTime = (hours) => {
+                if (!hours || hours <= 0) return null;
+                const h = Math.floor(hours);
+                const m = Math.round((hours - h) * 60);
+                let parts = [];
+                if (h > 0) parts.push(`${h} ч.`);
+                if (m > 0) parts.push(`${m} мин.`);
+                return parts.length > 0 ? parts.join(' ') : null;
+            };
+            const deliveryTimeText = formatTime(times.delivery);
+            const pickupTimeText = formatTime(times.pickup);
+            htmlBody += `<h3>⏳ Примерное время ожидания</h3>`;
+            if (deliveryTimeText) htmlBody += `<p>🚀 <strong>Доставка:</strong> ~${deliveryTimeText}</p>`;
+            if (pickupTimeText) htmlBody += `<p>🛍️ <strong>На вынос:</strong> ~${pickupTimeText}</p>`;
+        }
+        buttonText = 'Продолжить';
+        modal.okBtn.onclick = () => App.continueAfterLocationSelected();
+        modal.closeBtn.onclick = () => UI.hideModal(modal.el);
+    }
+    modal.title.textContent = title;
+    modal.body.innerHTML = htmlBody;
+    modal.okBtn.textContent = buttonText;
+    UI.showModal(modal.el);
+    */
+},
+
+  continueAfterLocationSelected: () => {
+    UI.hideModal(D.infoModal.el);
+    Render.menuScreen();
+    Cart.load();
+  },
+
+  setupDynamicEventListenersForForm: () => {
+    const deliveryTypeRadios = document.querySelectorAll('input[name="deliveryType"]');
+    deliveryTypeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const isDelivery = e.target.value === 'Доставка';
+            D.checkout.deliveryAddressContainer.classList.toggle('hidden', !isDelivery);
+            document.getElementById('deliveryAddress').required = isDelivery;
+        });
+    });
+    const initialDeliveryType = document.querySelector('input[name="deliveryType"]:checked');
+    if (initialDeliveryType) initialDeliveryType.dispatchEvent(new Event('change'));
+
+    const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
+    paymentMethodRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const isCash = e.target.value === 'Наличными';
+            D.checkout.changeFromContainer.classList.toggle('hidden', !isCash);
+        });
+    });
+    const initialPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked');
+    if (initialPaymentMethod) initialPaymentMethod.dispatchEvent(new Event('change'));
+  },
+
+  handleOrderAction: (orderNumber, action) => {
+    const orderData = activeOrdersCache.find(o => o.number === orderNumber);
+    if (!orderData) return UI.showError("Не удалось найти данные заказа.");
+
+    if (action === 'cancel') {
+        if (confirm(`Вы уверены, что хотите отменить заказ №${orderNumber}?`)) {
+            D.appContent.innerHTML = Render.spinner();
+            google.script.run
+                .withSuccessHandler(response => {
+                    alert(response.message);
+                    UI.renderView('orders');
+                })
+                .withFailureHandler(err => UI.showError(err.message))
+                .cancelOrderByClient(orderNumber, currentUserPhone);
+        }
+    } else {
+        const modeText = action === 'update' ? 'изменить' : 'дополнить';
+        if (confirm(`Вы хотите ${modeText} заказ №${orderNumber}? Текущая корзина будет заменена составом этого заказа.`)) {
+            App.startOrderModification(orderData, action);
+        }
+    }
+  },
+
+  startOrderModification: (order, mode) => {
+    editingOrderState = { number: order.number, mode: mode };
+    const locationOfOrder = allLocationsCache.find(loc => loc.name === order.selectedLocation);
+    if (!locationOfOrder) {
+        return UI.showError(`Точка продаж "${order.selectedLocation}" не найдена. Невозможно изменить заказ.`);
+    }
+    selectedLocation = locationOfOrder;
+    Cart.clear();
+    if (order && order.items) {
+        order.items.forEach(item => {
+            const fullItemData = findMenuItemByName(item.name);
+            if (fullItemData) {
+                const addonsTotal = (item.addons || []).reduce((sum, addon) => sum + addon.price * addon.quantity, 0);
+                cart.push({ uniqueId: Date.now() + Math.random(), name: item.name, quantity: item.quantity, basePrice: item.price, price: item.price + addonsTotal, imageUrl: fullItemData.imageUrl, addons: item.addons || [] });
+            }
+        });
+    }
+    UI.renderView('home');
+  },
+
+// Вставьте эту функцию внутрь объекта App, заменив старую
+setupCheckoutTime: () => {
+    const deliveryTypeInput = D.checkout.form.querySelector('input[name="deliveryType"]:checked');
+    if (!deliveryTypeInput) return;
+
+    const deliveryType = deliveryTypeInput.value;
+    const times = deliveryTimes[selectedLocation.name];
+    let waitingTimeHours = 0;
+
+    if (deliveryType === 'Доставка' && times.delivery) {
+        waitingTimeHours = times.delivery;
+    } else if (deliveryType === 'На вынос' && times.pickup) {
+        waitingTimeHours = times.pickup;
+    } else {
+        // Для "Зала" или если времени нет, ставим минимальное время (например, 15 минут)
+        waitingTimeHours = 0.25;
+    }
+
+    const waitingMinutes = Math.ceil(waitingTimeHours * 60);
+    const earliestTime = new Date();
+    // Устанавливаем самое раннее время = сейчас + время ожидания
+    earliestTime.setMinutes(earliestTime.getMinutes() + waitingMinutes);
+
+    // Вспомогательная функция для форматирования в "09"
+    const pad = (num) => String(num).padStart(2, '0');
+
+    // Форматируем дату и время для подстановки в поля input
+    const year = earliestTime.getFullYear();
+    const month = pad(earliestTime.getMonth() + 1);
+    const day = pad(earliestTime.getDate());
+    const hours = pad(earliestTime.getHours());
+    const minutes = pad(earliestTime.getMinutes());
+
+    const dateString = `${year}-${month}-${day}`;
+    const timeString = `${hours}:${minutes}`;
+
+    // Заполняем поля автоматически
+    D.checkout.deliveryDate.value = dateString;
+    D.checkout.deliveryTime.value = timeString;
+    
+    // Устанавливаем минимально возможную дату для выбора
+    D.checkout.deliveryDate.min = `${year}-${month}-${day}`;
+    
+    // Обновляем текст-подсказку для клиента
+    const timeComment = D.checkout.timeSection.querySelector('.time-comment');
+    timeComment.innerHTML = `Минимальное время готовности — примерно <b>${timeString}</b>. Вы можете выбрать любое время позже этого.`;
+
+    // Показываем секцию выбора времени
+    D.checkout.timeSection.classList.remove('hidden');
+},
+
+// Полностью замените эту функцию в объекте App
+gatherAndValidateOrderData: () => {
+    if (window.bypassTimeCheck) {
+        window.bypassTimeCheck = false;
+        return window.validatedOrderData;
+    }
+    
+    const form = D.checkout.form;
+    const selectedDate = D.checkout.deliveryDate.value;
+    const selectedTimeValue = D.checkout.deliveryTime.value;
+    
+    // Проверяем, что дата и время вообще выбраны
+    if (!selectedDate || !selectedTimeValue) {
+        UI.showError("Пожалуйста, выберите дату и время получения заказа.");
+        return null;
+    }
+
+    const selectedDateTime = new Date(`${selectedDate}T${selectedTimeValue}`);
+    
+    // Пересчитываем минимальное время для сравнения
+    const deliveryType = form.deliveryType.value;
+    const times = deliveryTimes[selectedLocation.name];
+    let waitingTimeHours = 0;
+    if (deliveryType === 'Доставка' && times.delivery) waitingTimeHours = times.delivery;
+    else if (deliveryType === 'На вынос' && times.pickup) waitingTimeHours = times.pickup;
+    else waitingTimeHours = 0.25;
+    const waitingMinutes = Math.ceil(waitingTimeHours * 60);
+    const earliestTime = new Date();
+    earliestTime.setMinutes(earliestTime.getMinutes() + waitingMinutes - 1); // -1 минута для погрешности
+
+    // Если выбранное время раньше минимального -> показать предупреждение
+    if (selectedDateTime < earliestTime) {
+        const pad = (num) => String(num).padStart(2, '0');
+        const earliestTimeString = `${pad(earliestTime.getHours())}:${pad(earliestTime.getMinutes())}`;
+        
+        D.invalidTimeModal.text.innerHTML = `Выбранное вами время (${selectedTimeValue}) слишком раннее. <br><br> Минимальное время готовности заказа: <b>${earliestTimeString}</b>. <br><br> Все равно оформить заказ на указанное время?`;
+        UI.showModal(D.invalidTimeModal.el);
+        
+        window.validatedOrderData = App.getOrderDataFromForm(); // Сохраняем данные для возможного подтверждения
+        return null; // Прерываем отправку
+    }
+    
+    return App.getOrderDataFromForm();
+},
+
+// Вставьте эту НОВУЮ функцию-помощник в объект App
+getOrderDataFromForm: () => {
+    const form = D.checkout.form;
+    const normalizedPhone = normalizePhoneRU(form.clientPhone.value.trim());
+    // Собираем все данные из формы, включая ВРЕМЯ
+    const orderData = {
+        clientName: form.clientName.value.trim(),
+        clientPhone: normalizedPhone,
+        deliveryAddress: form.deliveryAddress.value.trim(),
+        cartItems: cart,
+        totalAmount: Cart.getTotal(),
+        comments: form.clientComments.value.trim(),
+        selectedLocation: selectedLocation.name,
+        startPointAddress: selectedLocation.address,
+        paymentMethod: form.paymentMethod.value,
+        deliveryType: form.deliveryType.value,
+        selectedTime: `${D.checkout.deliveryDate.value} в ${D.checkout.deliveryTime.value}`, // Добавляем время в заказ
+        changeFrom: form.changeFrom.value.trim(),
+        editingState: editingOrderState
+    };
+    
+    // Проверяем остальные поля
+    const errors = [];
+    if (!orderData.clientName) errors.push('ваше имя');
+    if (!orderData.clientPhone) errors.push('корректный номер телефона');
+    if (orderData.deliveryType === 'Доставка' && !orderData.deliveryAddress) errors.push('адрес доставки');
+    if (errors.length > 0) {
+        UI.showError(`Пожалуйста, укажите: ${errors.join(', ')}.`);
+        return null;
+    }
+    return orderData;
+},
+
+  validateAndConfirmOrder: () => {
+    const orderData = App.gatherAndValidateOrderData();
+    if (orderData) {
+        App.submitOrder(orderData);
+    }
+  },
+
+  submitOrder: (orderData) => {
+    const spinner = D.checkout.el.querySelector('.modal-spinner-overlay');
+    spinner.classList.remove('hidden');
+    D.checkout.submitBtn.disabled = true;
+    google.script.run
+        .withSuccessHandler(result => {
+            spinner.classList.add('hidden');
+            D.checkout.submitBtn.disabled = false;
+            UI.hideModal(D.checkout.el);
+            D.confirmation.orderNumber.textContent = `#${result.orderNumber}`;
+            UI.showModal(D.confirmation.el);
+            Cart.clear();
+            D.checkout.form.reset();
+            editingOrderState = { number: null, mode: null };
+            App.update();
+        })
+        .withFailureHandler(err => {
+            spinner.classList.add('hidden');
+            D.checkout.submitBtn.disabled = false;
+            UI.showError('Ошибка при оформлении заказа: ' + err.message);
+        })
+        .processOrderSubmission(orderData);
+  },
+
+  update: (name) => {
+    Cart.save();
+    UI.updateCartDisplay();
+    const totalItems = Cart.getTotalItems();
+    if (totalItems > 0 && currentView === 'home') {
+        D.floatingCheckout.button.textContent = `К оформлению • ${Cart.getTotal().toFixed(0)} руб`;
+        D.floatingCheckout.container.classList.remove('hidden');
+    } else {
+        D.floatingCheckout.container.classList.add('hidden');
+    }
+    if (name) Render.updateCardView(name);
+    if (currentView === 'cart') UI.renderView('cart');
+  },
+
+// ЗАМЕНИТЕ ВАШУ ФУНКЦИЮ ЦЕЛИКОМ НА ЭТУ ВЕРСИЮ
+setupEventListeners: () => {
+    // --- 1. ЛОГИН И ВЫХОД ---
+    D.loginButton.onclick = App.login;
+    D.header.logoutBtn.onclick = App.logout;
+
+    // --- 2. ОСНОВНАЯ НАВИГАЦИЯ ---
+    D.header.hamburgerBtn.onclick = () => UI.toggleSidebar('open');
+    D.sidebar.overlay.onclick = () => UI.toggleSidebar('close');
+    D.header.backButton.onclick = () => UI.renderView('home');
+    
+    D.bottomNav.el.addEventListener('click', (e) => {
+        const navButton = e.target.closest('.nav-button');
+        if (!navButton) return;
+        const viewName = navButton.dataset.view;
+        if (viewName === 'home') App.goToHome();
+        else if (!navButton.classList.contains('active')) UI.renderView(viewName);
+    });
+
+    D.sidebar.categoriesList.addEventListener('click', (e) => {
+        const categoryItem = e.target.closest('li');
+        if (categoryItem) {
+            Render.items(categoryItem.dataset.category);
+            UI.toggleSidebar('close');
+        }
+    });
+
+    D.floatingCheckout.button.onclick = () => UI.renderView('cart');
+
+    // --- 3. ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ В ОБЛАСТИ КОНТЕНТА ---
+    D.appContent.addEventListener('click', (e) => {
+        const categoryCard = e.target.closest('.category-card');
+        if (categoryCard) return Render.items(categoryCard.dataset.categoryName);
+
+        const controls = e.target.closest('.item-action-controls');
+        const menuItemCard = e.target.closest('.menu-item');
+        if (menuItemCard && !controls) return Render.itemDetailsModal(menuItemCard.dataset.itemName);
+        
+        const locationBtn = e.target.closest('.location-button');
+        if (locationBtn) {
+            const locName = locationBtn.dataset.locationName;
+            const locationData = allLocationsCache.find(l => l.name === locName);
+            if (locationData) {
+                // Это наша новая логика: если точка закрыта - показываем инфо-окно, если открыта - продолжаем
+                if (locationData.status === 'Закрыто') {
+                    App.showWaitingTimeModal(locationData);
+                } else {
+                    App.selectLocation(locationData);
+                }
+            }
+            return;
+        }
+
+        if (controls) {
+            const itemName = controls.dataset.itemName;
+            const fullItemData = findMenuItemByName(itemName);
+            if (!fullItemData) return;
+            if (e.target.matches('.item-add-initial-btn, .increase-btn')) {
+                if (fullItemData.hasAddons) Render.addonModal(fullItemData);
+                else Cart.add(fullItemData);
+            } else if (e.target.matches('.decrease-btn')) {
+                Cart.removeOneByName(itemName);
+            }
+            return;
+        }
+        
+        const cartControls = e.target.closest('.quantity-controls');
+        if (cartControls) {
+            const uniqueId = e.target.dataset.uniqueId;
+            if (!uniqueId) return;
+            if (e.target.matches('.increase-modal-btn')) Cart.updateQuantity(Number(uniqueId), 1);
+            else if (e.target.matches('.decrease-modal-btn')) Cart.updateQuantity(Number(uniqueId), -1);
+            return;
+        }
+
+        const checkoutBtn = e.target.closest('#go-to-checkout-btn');
+        if (checkoutBtn) {
+            UI.showModal(D.checkout.el);
+            if (clientInfo) {
+                D.checkout.form.clientName.value = clientInfo.name || '';
+                D.checkout.form.clientPhone.value = clientInfo.phone || '';
+                D.checkout.form.deliveryAddress.value = clientInfo.address || '';
+            } else if (currentUserPhone) {
+                D.checkout.form.clientPhone.value = currentUserPhone;
+            }
+            Render.checkoutFormOptions();
+            App.setupCheckoutTime(); // <--- ВАЖНО: Рассчитываем время при открытии окна
+            return;
+        }
+        
+        const tabLink = e.target.closest('.tab-link');
+        if (tabLink && !tabLink.classList.contains('active')) {
+            D.appContent.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+            tabLink.classList.add('active');
+            Render.filterAndShowOrders(tabLink.dataset.tab);
+            return;
+        }
+
+        const actionButton = e.target.closest('.action-button');
+        if (actionButton) {
+            App.handleOrderAction(actionButton.dataset.orderNumber, actionButton.dataset.action);
+            return;
+        }
+    });
+
+    // --- 4. ОБРАБОТЧИКИ ФОРМ ---
+    D.appContent.addEventListener('submit', (e) => {
+        if (e.target.id === 'profile-form') {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = 'Сохранение...';
+            const profileData = { phone: currentUserPhone, newName: document.getElementById('profile-name').value, newAddress: document.getElementById('profile-address').value };
+            google.script.run
+                .withSuccessHandler(response => {
+                    btn.disabled = false;
+                    btn.textContent = 'Сохранить изменения';
+                    clientInfo.name = profileData.newName;
+                    clientInfo.address = profileData.newAddress;
+                    alert('Профиль успешно обновлен!');
+                })
+                .withFailureHandler(err => {
+                    btn.disabled = false;
+                    btn.textContent = 'Сохранить изменения';
+                    UI.showError(err.message);
+                })
+                .updateClientProfile(profileData);
+        }
+    });
+
+    // --- 5. ОБРАБОТЧИКИ МОДАЛЬНЫХ ОКОН ---
+    D.allModals.forEach(modal => {
+        const closeBtn = modal.querySelector('.close-button');
+        if (closeBtn) closeBtn.addEventListener('click', () => UI.hideModal(modal));
+    });
+
+    D.itemDetailsModal.el.addEventListener('click', e => {
+        const controls = e.target.closest('.item-action-controls');
+        if (!controls) return;
+        const itemName = controls.dataset.itemName;
+        const fullItemData = findMenuItemByName(itemName);
+        if (!fullItemData) return;
+        if (e.target.matches('.item-add-initial-btn, .increase-btn')) {
+            if (fullItemData.hasAddons) {
+                UI.hideModal(D.itemDetailsModal.el);
+                Render.addonModal(fullItemData);
+            } else {
+                Cart.add(fullItemData);
+            }
+        } else if (e.target.matches('.decrease-btn')) {
+            Cart.removeOneByName(itemName);
+        }
+    });
+
+    
+
+    D.addonModal.confirmBtn.addEventListener('click', e => {
+        const baseItem = JSON.parse(e.currentTarget.dataset.baseItem);
+        const selectedAddons = [];
+        D.addonModal.list.querySelectorAll('.item-action-controls').forEach(control => {
+            const stepper = control.querySelector('.item-quantity-stepper');
+            if (!stepper.classList.contains('hidden')) {
+                const quantity = parseInt(control.querySelector('.quantity').textContent);
+                if (quantity > 0) {
+                    selectedAddons.push({ name: control.dataset.addonName, price: parseFloat(control.dataset.addonPrice), quantity: quantity });
+                }
+            }
+        });
+        Cart.add(baseItem, selectedAddons);
+        UI.hideModal(D.addonModal.el);
+    });
+    
+    // --- 6. НОВАЯ ЛОГИКА ДЛЯ ОФОРМЛЕНИЯ ЗАКАЗА И ВРЕМЕНИ ---
+    D.checkout.submitBtn.onclick = () => App.validateAndConfirmOrder();
+
+    // Обновляем время, если клиент меняет тип доставки (например, с "Доставки" на "На вынос")
+    D.checkout.el.addEventListener('change', e => {
+        if (e.target.name === 'deliveryType') {
+            App.setupCheckoutTime();
+        }
+    });
+    
+    D.invalidTimeModal.cancelBtn.onclick = () => {
+        UI.hideModal(D.invalidTimeModal.el);
+        window.bypassTimeCheck = false;
+        window.validatedOrderData = null;
+    };
+    D.invalidTimeModal.confirmBtn.onclick = () => {
+        window.bypassTimeCheck = true;
+        UI.hideModal(D.invalidTimeModal.el);
+        App.validateAndConfirmOrder();
+    };
+
+    D.confirmation.newOrderBtn.onclick = () => { UI.hideModal(D.confirmation.el); UI.renderView('home'); };
+
+    // --- 7. ЛОГИКА ДЛЯ FAB (плавающей кнопки) ---
+    const fabContainer = document.querySelector('.fab-container');
+    const fabMainBtn = document.getElementById('fab-main-btn');
+    const checkoutContainer = D.floatingCheckout.container;
+
+    if (fabMainBtn) {
+        fabMainBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const willBeOpen = !fabContainer.classList.contains('is-open');
+            fabContainer.classList.toggle('is-open', willBeOpen);
+            if (!checkoutContainer.classList.contains('hidden')) {
+                checkoutContainer.classList.toggle('is-shifted', willBeOpen);
+            }
+        });
+    }
+
+    document.addEventListener('click', () => {
+        if (fabContainer && fabContainer.classList.contains('is-open')) {
+            fabContainer.classList.remove('is-open');
+            if (checkoutContainer.classList.contains('is-shifted')) {
+                checkoutContainer.classList.remove('is-shifted');
+            }
+        }
+    });
+},
+};
+
+  // ===============================================================
+  //    8. ЗАПУСК ПРИЛОЖЕНИЯ
+  // ===============================================================
+  App.init();
+
+});
+</script>
+
+</body>
+</html>
