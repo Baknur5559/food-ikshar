@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Стили, похожие на ваше основное приложение */
+        :root {
+            --background-color: #1c1c1c;
+            --surface-color: #2a2a2a;
+            --primary-accent: #E0A800;
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0A0A0;
+            --border-color: #444444;
+            --font-body: 'Inter', sans-serif;
+            --border-radius: 8px;
+        }
+        body { 
+            font-family: var(--font-body); 
+            background-color: var(--background-color); 
+            color: var(--text-primary); 
+            padding: 12px;
+            font-size: 14px;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+            box-sizing: border-box;
+        }
+        button {
+            background-color: var(--primary-accent);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        h3 { 
+            margin-top: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        li:hover {
+            background-color: var(--surface-color);
+        }
+        .menu-item { cursor: pointer; }
+        .order-item-controls, .order-item-qty {
+            display: flex;
+            align-items: center;
+        }
+        .order-item-controls button {
+            width: 28px; height: 28px;
+            padding: 0; margin: 0 5px;
+            background-color: #555;
+            color: white;
+            line-height: 28px;
+            text-align: center;
+        }
+        .order-item-controls .remove-btn {
+            background-color: #8b0000;
+        }
+        .summary {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 2px solid var(--primary-accent);
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-accent);
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Стили для модального окна допов */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background-color: var(--surface-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        #addon-modal-list {
+            max-height: 250px;
+        }
+    </style>
+</head>
+<body>
+    <input type="hidden" id="order-row" value="<?= orderInfo.row ?>">
+    <input type="hidden" id="initial-items-text" value="<?= orderInfo.itemsText ?>">
+
+    <h3>Добавить блюдо в заказ</h3>
+    <input type="text" id="search-input" placeholder="Начните вводить название...">
+    <div id="menu-list-container">
+        <div id="loader" class="spinner"></div>
+        <ul id="menu-list"></ul>
+    </div>
+
+    <h3>Текущий состав заказа</h3>
+    <ul id="current-order-items">
+        </ul>
+
+    <div class="summary">
+        Новая сумма: <span id="new-total">0</span> руб
+    </div>
+    
+    <button id="save-button" disabled>Сохранить изменения</button>
+    <button onclick="google.script.host.close()">Закрыть</button>
+
+    <div id="addon-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>Добавить к <span id="addon-modal-item-name"></span></h3>
+            <ul id="addon-modal-list"></ul>
+            <div class="modal-footer">
+                <button id="confirm-addons-btn">Подтвердить</button>
+                <button id="cancel-addons-btn">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+    let allMenuItems = [];
+    let allAddonItems = [];
+    let currentOrderItems = [];
+
+    // --- ПОЛУЧЕНИЕ ДАННЫХ ИЗ HTML ---
+    const orderRow = <?= orderInfo.row ?>;
+    const initialItemsText = '<?= orderInfo.itemsText ?>';
+
+    // --- ЭЛЕМЕНТЫ DOM ---
+    const searchInput = document.getElementById('search-input');
+    const menuList = document.getElementById('menu-list');
+    const currentOrderList = document.getElementById('current-order-items');
+    const newTotalEl = document.getElementById('new-total');
+    const saveButton = document.getElementById('save-button');
+    const loader = document.getElementById('loader');
+    const addonModal = document.getElementById('addon-modal');
+    const addonModalItemName = document.getElementById('addon-modal-item-name');
+    const addonModalList = document.getElementById('addon-modal-list');
+    const confirmAddonsBtn = document.getElementById('confirm-addons-btn');
+    const cancelAddonsBtn = document.getElementById('cancel-addons-btn');
+
+    // --- ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
+    // Эта функция сработает, как только откроется панель
+    window.addEventListener('load', () => {
+        // Показываем индикатор загрузки
+        loader.style.display = 'block'; 
+        
+        // Запрашиваем данные меню у сервера
+        google.script.run
+            .withSuccessHandler(onDataReceived) // Что делать при успешном получении
+            .withFailureHandler(onDataError)     // Что делать при ошибке
+            .getEditorData(); // Вызываем нашу серверную функцию
+    });
+
+    // Функция, которая сработает ПОСЛЕ успешной загрузки данных
+    function onDataReceived(editorData) {
+        // Прячем индикатор загрузки
+        loader.style.display = 'none'; 
+        
+        // Заполняем наши глобальные переменные полученными данными
+        allMenuItems = editorData.allMenuItems;
+        allAddonItems = editorData.allAddonItems;
+        
+        // И только ТЕПЕРЬ, когда все данные на месте, разбираем текущий заказ
+        parseInitialItems();
+    }
+    
+    // Функция на случай ошибки загрузки
+    function onDataError(error) {
+        loader.style.display = 'none';
+        alert('Не удалось загрузить справочник меню: ' + error.message);
+    }
+
+    // --- ОСНОВНЫЕ ФУНКЦИИ ---
+
+    // Функция нормализует строки, чтобы решить проблему с "невидимыми" символами и РЕГИСТРОМ
+    function normalizeString(str) {
+        if (!str) return '';
+        return String(str).trim().replace(/\s\s+/g, ' ').toLowerCase();
+    }
+
+    // Ищет товар в общем списке
+    function findItem(name) {
+        const normalizedName = normalizeString(name);
+        // Теперь allMenuItems гарантированно существует
+        return allMenuItems.find(i => normalizeString(i.name) === normalizedName);
+    }
+    
+    // Разбирает существующий заказ из текста
+    function parseInitialItems() {
+        if (!initialItemsText) {
+            renderCurrentOrder();
+            return;
+        }
+        const items = initialItemsText.split(';').map(s => s.trim()).filter(Boolean);
+        items.forEach(itemString => {
+            const addonMatch = itemString.match(/(.+?) \((\d+)\) \(Допы: (.*)\)/);
+            const simpleMatch = itemString.match(/(.+?) \((\d+)\)$/);
+            let name, quantity, addons = [], parsed = false;
+            if (addonMatch) {
+                name = addonMatch[1].trim();
+                quantity = parseInt(addonMatch[2], 10);
+                const addonsText = addonMatch[3].trim();
+                addonsText.split(',').forEach(addonStr => {
+                    const parts = addonStr.trim().split(' x');
+                    const addonName = parts[0];
+                    const addonQtyText = parts[1];
+                    const addonItem = allAddonItems.find(a => normalizeString(a.name) === normalizeString(addonName));
+                    if (addonItem && addonQtyText) {
+                        addons.push({ name: addonName, price: addonItem.price, quantity: parseInt(addonQtyText, 10) });
+                    }
+                });
+                parsed = true;
+            } else if (simpleMatch) {
+                name = simpleMatch[1].trim();
+                quantity = parseInt(simpleMatch[2], 10);
+                parsed = true;
+            }
+            if (parsed && name) {
+                const menuItem = findItem(name);
+                if (menuItem) {
+                    currentOrderItems.push({ ...menuItem, quantity, addons: addons });
+                } else {
+                    console.error("Товар не найден в справочнике:", name);
+                }
+            }
+        });
+        renderCurrentOrder();
+    }
+
+    // Отрисовывает список всех блюд (результаты поиска)
+    function renderMenuList(filter = '') {
+        menuList.innerHTML = '';
+        const lowerFilter = normalizeString(filter);
+        if (lowerFilter.length < 2) return;
+        const filtered = allMenuItems.filter(item => normalizeString(item.name).includes(lowerFilter));
+        filtered.slice(0, 30).forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'menu-item';
+            li.textContent = `${item.name} - ${item.price} руб`;
+            li.onclick = () => addItemToOrder(item);
+            menuList.appendChild(li);
+        });
+    }
+
+    // Отрисовывает текущий состав заказа
+    function renderCurrentOrder() {
+        currentOrderList.innerHTML = '';
+        let total = 0;
+        currentOrderItems.forEach((item, index) => {
+            let itemTotal = item.price * item.quantity;
+            let addonsHtml = '';
+            if (item.addons && item.addons.length > 0) {
+                let addonsSubtotal = 0;
+                addonsHtml = '<ul style="font-size: 0.9em; color: var(--text-secondary); padding-left: 15px; margin: 0;">';
+                item.addons.forEach(addon => {
+                    addonsSubtotal += addon.price * addon.quantity;
+                    addonsHtml += `<li>+ ${addon.name} x${addon.quantity}</li>`;
+                });
+                addonsHtml += '</ul>';
+                itemTotal += addonsSubtotal * item.quantity;
+            }
+            total += itemTotal;
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div style="flex-grow: 1;">
+                    <span>${item.name}</span>
+                    ${addonsHtml}
+                </div>
+                <div class="order-item-qty">
+                    <span>${item.quantity} шт.</span>
+                    <div class="order-item-controls">
+                        <button class="remove-btn" onclick="removeItem(${index})">X</button>
+                    </div>
+                </div>
+            `;
+            currentOrderList.appendChild(li);
+        });
+        newTotalEl.textContent = total.toFixed(0);
+        saveButton.disabled = false;
+    }
+    
+    // Логика добавления товара
+    function addItemToOrder(itemData) {
+        if (itemData.hasAddons) {
+            renderAddonModal(itemData);
+        } else {
+            const existingItem = currentOrderItems.find(i => i.name === itemData.name && (!i.addons || i.addons.length === 0));
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                currentOrderItems.push({ ...itemData, quantity: 1, addons: [] });
+            }
+            renderCurrentOrder();
+        }
+    }
+    
+    // Удаление товара из заказа
+    function removeItem(index) {
+        currentOrderItems[index].quantity--;
+        if (currentOrderItems[index].quantity === 0) {
+            currentOrderItems.splice(index, 1);
+        }
+        renderCurrentOrder();
+    }
+    
+    // Показывает и заполняет модальное окно допов
+    function renderAddonModal(baseItem) {
+        addonModalItemName.textContent = baseItem.name;
+        addonModalList.innerHTML = '';
+        allAddonItems.forEach(addon => {
+            addonModalList.innerHTML += `
+                <li>
+                    <span>${addon.name} - ${addon.price} руб</span>
+                    <div class="order-item-controls">
+                        <button onclick="updateAddonQty('${addon.name}', -1)">-</button>
+                        <span id="addon-qty-${addon.name}">0</span>
+                        <button onclick="updateAddonQty('${addon.name}', 1)">+</button>
+                    </div>
+                </li>
+            `;
+        });
+        confirmAddonsBtn.onclick = () => {
+            const selectedAddons = [];
+            allAddonItems.forEach(addon => {
+                const qty = parseInt(document.getElementById(`addon-qty-${addon.name}`).textContent);
+                if (qty > 0) {
+                    selectedAddons.push({ name: addon.name, price: addon.price, quantity: qty });
+                }
+            });
+            currentOrderItems.push({ ...baseItem, quantity: 1, addons: selectedAddons });
+            renderCurrentOrder();
+            addonModal.style.display = 'none';
+        };
+        addonModal.style.display = 'flex';
+    }
+
+    // Сохраняет изменения в таблицу
+    function saveChanges() {
+        saveButton.disabled = true;
+        saveButton.textContent = "Сохранение...";
+        const newItemsText = currentOrderItems.map(item => {
+            let text = `${item.name} (${item.quantity})`;
+            if (item.addons && item.addons.length > 0) {
+                const addonsText = item.addons.map(a => `${a.name} x${a.quantity}`).join(', ');
+                text += ` (Допы: ${addonsText})`;
+            }
+            return text;
+        }).join('; ');
+        const newTotal = parseFloat(newTotalEl.textContent);
+        google.script.run
+            .withSuccessHandler(response => {
+                alert(response);
+                google.script.host.close();
+            })
+            .withFailureHandler(error => {
+                alert('Произошла критическая ошибка: ' + error.message);
+                saveButton.disabled = false;
+                saveButton.textContent = "Сохранить изменения";
+            })
+            .updateOrderFromSidebar({ row: orderRow, newItemsText: newItemsText, newTotal: newTotal });
+    }
+
+    // --- ОБРАБОТЧИКИ СОБЫТИЙ И ГЛОБАЛЬНЫЕ ФУНКЦИИ ---
+    searchInput.addEventListener('keyup', () => renderMenuList(searchInput.value));
+    saveButton.addEventListener('click', saveChanges);
+    cancelAddonsBtn.addEventListener('click', () => addonModal.style.display = 'none');
+    
+    window.removeItem = removeItem;
+    window.updateAddonQty = (name, change) => {
+        const el = document.getElementById(`addon-qty-${name}`);
+        let qty = parseInt(el.textContent) + change;
+        if (qty < 0) qty = 0;
+        el.textContent = qty;
+    };
+</script>
+</body>
+</html>
